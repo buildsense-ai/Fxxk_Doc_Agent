@@ -1,0 +1,16 @@
+{
+  "template_info": {
+    "original_path": "uploads\\test_template.docx",
+    "processed_template_path": "uploads\\test_template_processed.docx",
+    "conversion_timestamp": null
+  },
+  "template_structure": {
+    "paragraph_0": "测试模板文档",
+    "paragraph_1": "项目名称：{project_name}",
+    "paragraph_2": "负责人：{manager}",
+    "paragraph_3": "开始日期：{start_date}",
+    "paragraph_4": "项目描述：{description}"
+  },
+  "placeholders": [],
+  "placeholder_originals": {}
+}
