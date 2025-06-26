@@ -19,7 +19,7 @@ class Tool:
         raise NotImplementedError
 
 class ToolRegistry:
-    """工具注册表 - 核心三工具"""
+    """工具注册表 - 核心四工具"""
     def __init__(self):
         self.tools: Dict[str, Tool] = {}
         self._register_core_tools()
@@ -37,33 +37,14 @@ class ToolRegistry:
         except ImportError as e:
             print(f"❌ RAG工具加载失败: {e}")
         
-
-        # 2. 模板转换工具 - DOC/DOCX转JSON结构化数据
+        # 2. 专业文档工具 - 完整的RAG+AI智能文档处理功能
         try:
-            from .template_conversion_tool import TemplateConversionTool
-            template_converter = TemplateConversionTool()
-            core_tools.append(template_converter)
-            print("✅ 模板转换工具加载成功")
+            from .professional_document_tool import ProfessionalDocumentTool
+            professional_tool = ProfessionalDocumentTool()
+            core_tools.append(professional_tool)
+            print("✅ 专业文档工具加载成功")
         except ImportError as e:
-            print(f"❌ 模板转换工具加载失败: {e}")
-        
-        # 3. 模板填充工具 - AI智能填充Word文档
-        try:
-            from .template_inserter_tool import TemplateInserterTool
-            template_inserter = TemplateInserterTool()
-            core_tools.append(template_inserter)
-            print("✅ 模板填充工具加载成功")
-        except ImportError as e:
-            print(f"❌ 模板填充工具加载失败: {e}")
-        
-        # 4. 专业文档代理工具 - 高级文档生成协调器
-        try:
-            from .professional_document_agent_tool import ProfessionalDocumentAgentTool
-            professional_agent = ProfessionalDocumentAgentTool()
-            core_tools.append(professional_agent)
-            print("✅ 专业文档代理工具加载成功")
-        except ImportError as e:
-            print(f"❌ 专业文档代理工具加载失败: {e}")
+            print(f"❌ 专业文档工具加载失败: {e}")
         
         # 注册所有工具
         for tool in core_tools:
@@ -99,10 +80,9 @@ class ToolRegistry:
         summary = "🔧 核心三工具架构:\n\n"
         
         tool_descriptions = {
-            "rag_tool": "📚 RAG工具 - 文档embedding处理、智能搜索、基于模板字段的内容填充",
-            "template_conversion": "🔄 模板转换工具 - DOC/DOCX模板转换为JSON结构化数据，智能占位符识别",
-            "template_inserter": "🎯 模板填充工具 - AI智能将JSON内容数据填充到模板中生成Word文档",
-            "professional_document_agent": "🧠 专业文档代理工具 - RAG检索+AI智能合并的高级文档生成协调器"
+            "rag_tool": "📚 RAG工具 - 文档embedding处理、智能搜索",
+            "professional_document_tool": "🎯 专业文档工具 - 完整的RAG+AI智能文档处理功能",
+            "advanced_long_document_generator": "🚀 高级长文档生成工具 - 专业长篇文档智能生成器"
         }
         
         for tool_name, description in tool_descriptions.items():
@@ -114,16 +94,17 @@ class ToolRegistry:
         summary += f"\n📊 总计: {len(self.tools)} 个工具已加载"
         return summary
 
-    def register_long_document_tool(self, deepseek_client):
-        """注册长文档生成工具"""
+
+    
+    def register_advanced_long_document_tool(self):
+        """注册高级长文档生成工具"""
         try:
-            from .long_document_generator_tool import LongDocumentGeneratorTool
-            long_doc_tool = LongDocumentGeneratorTool(deepseek_client)
-            # 直接添加到工具字典，避免类型检查问题
-            self.tools[long_doc_tool.name] = long_doc_tool
-            print("✅ 长文档生成工具加载成功")
+            from .advanced_long_document_generator_tool import AdvancedLongDocumentGeneratorTool
+            advanced_tool = AdvancedLongDocumentGeneratorTool()
+            self.tools[advanced_tool.name] = advanced_tool
+            print("✅ 高级长文档生成工具加载成功")
         except ImportError as e:
-            print(f"❌ 长文档生成工具加载失败: {e}")
+            print(f"❌ 高级长文档生成工具加载失败: {e}")
 
 def create_core_tool_registry(deepseek_client=None) -> ToolRegistry:
     """创建核心工具注册表"""
@@ -137,9 +118,9 @@ def create_core_tool_registry(deepseek_client=None) -> ToolRegistry:
             if hasattr(field_processor, 'deepseek_client'):
                 field_processor.deepseek_client = deepseek_client
                 print("🤖 RAG工具已配置AI客户端")
-        
-        # 注册长文档生成工具
-        registry.register_long_document_tool(deepseek_client)
+    
+    # 注册高级长文档生成工具（不需要deepseek_client参数）
+    registry.register_advanced_long_document_tool()
     
     return registry
 
@@ -162,16 +143,11 @@ TOOL_USAGE_GUIDE = """
    - 支持字典、JSON文件或JSON字符串作为内容数据
    - 自动处理图片附件和复杂模板结构
 
-4️⃣ 长文档生成工具 (long_document_generator):
-   - 生成长文档: action="generate", request="生成技术报告", chat_history="对话历史"
-   - 查询任务状态: action="status", task_id="任务ID"
-   - 获取生成文档: action="get_document", task_id="任务ID"
-   - 任务列表: action="list_tasks"
-
-5️⃣ 专业文档代理工具 (professional_document_agent):
-   - 生成专业文档: action="generate", request="用户需求", template_id="模板ID"
-   - RAG独立检索: action="search", query="搜索内容", template_id="模板ID"
-   - 获取模板信息: action="template", template_id="模板ID"
+3️⃣ 专业文档工具 (professional_document_tool):
+   - 智能文档处理: file_path="文档路径", user_request="用户需求"
+   - RAG检索模式: processing_mode="professional_agent"
+   - 模板插入模式: processing_mode="template_insertion"
+   - 内容合并模式: processing_mode="content_merge"
 
 🔄 推荐工作流程:
 
@@ -179,28 +155,136 @@ TOOL_USAGE_GUIDE = """
 资料文档 → RAG工具(embedding) → 旧模板(DOC) → 模板转换工具(转换+分析) → 
 模板填充工具(AI智能填充) → 填充好的docx文档
 
-📄 长文档生成流程:
-用户需求 → 长文档生成工具(多阶段生成) → 创作指令分析 → 大纲生成与精炼 → 
-章节内容生成 → 文档整合 → 完整的长篇文档
-
-🧠 专业文档代理流程:
-用户需求 → 专业文档代理工具(协调处理) → RAG检索相关信息 → 模板智能管理 → 
-多源信息整合 → AI智能合并 → 专业级文档输出
+🎯 专业文档处理流程:
+用户需求 → 专业文档工具(智能处理) → RAG检索相关信息 → 模板智能填充 → 
+多模式处理选择 → AI智能合并 → 专业级文档输出
 
 💡 核心优势:
 - 支持旧版DOC格式模板处理
 - 智能占位符识别和转换
 - AI智能内容映射和填充
-- 多阶段长文档智能生成
-- 任务状态管理和进度跟踪
+- RAG向量检索和知识管理
+- 多模式智能处理选择
 - 极简的文档处理工作流
 - 高质量文档输出和结构化数据
 - 一站式文档解决方案
 
 🎯 适用场景:
 - 施工组织设计等模板文档填充
-- 技术报告、研究文档生成
+- 专业技术文档智能生成
 - 项目方案、分析报告撰写
-- 长篇专业文档创作
+- 知识库文档管理和检索
 - 文档模板标准化处理
-""" 
+"""
+
+from .rag_tool_chroma import RAGTool
+from .professional_document_tool import ProfessionalDocumentTool
+
+def register_tools(agent):
+    """注册所有工具到ReAct Agent"""
+    tools = [
+        {
+            "name": "rag_tool",
+            "description": """📚 RAG文档处理工具 - 专业知识库embedding和检索系统
+
+核心功能：
+- 文档embedding向量化（支持DOC/DOCX/PDF/TXT等格式）
+- 基于Chroma向量数据库的语义检索  
+- 多模态内容提取和索引
+- 智能文档相似度搜索
+
+适用场景：当需要对大量文档进行知识管理、语义搜索或构建专业知识库时使用""",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operation": {
+                        "type": "string",
+                        "enum": ["add_document", "search", "list_documents", "delete_document"],
+                        "description": "操作类型：add_document(添加文档), search(搜索), list_documents(列出文档), delete_document(删除文档)"
+                    },
+                    "file_path": {
+                        "type": "string", 
+                        "description": "文档文件路径（add_document和delete_document时需要）"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "搜索查询语句（search时需要）"
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "返回结果数量（search时可选，默认5）"
+                    }
+                },
+                "required": ["operation"]
+            },
+            "function": lambda **kwargs: RAGTool().execute(**kwargs)
+        },
+
+
+        {
+            "name": "professional_document_tool",
+            "description": """🎯 专业文档工具 - 完整的RAG+AI智能文档处理功能
+
+这是一个集成化的专业文档处理工具，整合了用户提供的完整专业工具代理和模板插入功能。
+
+核心特性：
+- 🔍 RAG向量检索：从专业知识库中检索相关信息
+- 📄 智能模板插入：保持Word模板原始结构进行AI填充
+- 🧠 AI内容合并：基于模板JSON生成新的专业文档
+- 📋 多格式支持：处理DOC/DOCX/PDF/TXT等格式
+- 🖼️ 图像占位符处理：支持图片引用和附件管理
+- 🏗️ 建筑工程领域优化：专业术语和规范
+
+智能处理模式：
+- professional_agent：RAG检索 + 智能选择模式（推荐）
+- template_insertion：保持Word结构的模板填充
+- content_merge：基于JSON模板生成新文档
+
+适用场景：需要专业性强、格式规范的工程技术文档生成""",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "输入文档文件路径"
+                    },
+                    "user_request": {
+                        "type": "string", 
+                        "description": "用户需求描述"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "项目背景或上下文信息",
+                        "default": ""
+                    },
+                    "template_id": {
+                        "type": "string",
+                        "enum": ["construction_safety", "construction_organization", "heritage_building", "default"],
+                        "default": "default",
+                        "description": "模板标识符"
+                    },
+                    "processing_mode": {
+                        "type": "string",
+                        "enum": ["auto", "professional_agent", "template_insertion", "content_merge"],
+                        "default": "auto", 
+                        "description": "处理模式：auto(智能选择), professional_agent(RAG+智能), template_insertion(模板插入), content_merge(内容合并)"
+                    }
+                },
+                "required": ["file_path", "user_request"]
+            },
+            "function": lambda **kwargs: ProfessionalDocumentTool().process_document(**kwargs)
+        }
+    ]
+    
+    for tool in tools:
+        agent.register_tool(
+            name=tool["name"],
+            description=tool["description"], 
+            parameters=tool["parameters"],
+            function=tool["function"]
+        )
+    
+    print("✅ 已注册2个核心工具：")
+    print("   📚 rag_tool - RAG文档处理工具")
+    print("   🎯 professional_document_tool - 专业文档工具（完整版）") 

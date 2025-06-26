@@ -1,263 +1,183 @@
-# Enhanced ReAct Agent - 纯ReAct智能文档处理系统
+# ReactAgent - 智能文档处理系统
 
-## 🎯 项目概述
+一个基于ReAct框架的智能代理系统，专注于专业文档的智能处理和生成。
 
-Enhanced ReAct Agent 是一个基于DeepSeek AI的智能文档处理系统，采用**纯ReAct架构**和**四工具生态**，通过Agent自主推理和决策来处理各种文档相关任务。
+## 🌟 **核心功能**
 
-## 🧠 纯ReAct架构设计
+### 📚 **RAG文档处理**
+- 支持多格式文档embedding（DOC/DOCX/PDF/TXT）
+- 基于Chroma向量数据库的语义检索
+- 智能文档相似度搜索和知识管理
 
-### 核心理念
-- **🧠 Reasoning**: Agent通过思考分析当前情况
-- **🎯 Acting**: Agent自主选择合适的工具行动  
-- **🔄 循环迭代**: 基于观察结果继续推理和行动
+### 🧠 **专业文档代理**
+- RAG检索+AI智能合并协调器
+- 智能文档类型识别和处理策略选择
+- 专业建筑工程领域优化
 
-### 架构流程
-```
-用户请求 → ReAct循环 → Thought → Action → Observation → Final Answer
-```
+### 📋 **模板合并系统**
+- AI智能合并原始文档与模板JSON
+- 保持模板格式的同时填充实际内容
+- 智能字段匹配和内容提取
 
-**关键特性:**
-- ✅ 所有请求都通过ReAct循环处理
-- ✅ Agent自主推理和工具选择
-- ✅ 完全透明的决策过程
-- ✅ 高度灵活和可扩展
+### 🔥 **长文档生成**
+- 专业长篇文档智能生成器（3000-8000字）
+- 多种专业领域模板支持
+- AI驱动的章节结构规划
 
-## 🔧 四工具生态架构
+### 🎯 **专业文档工具（新增）**
+- **完整的RAG+AI智能文档处理功能**
+- 整合用户提供的专业工具代理和模板插入功能
+- 支持三种智能处理模式：
+  - `professional_agent`：RAG检索 + 智能选择模式（推荐）
+  - `template_insertion`：保持Word结构的模板填充
+  - `content_merge`：基于JSON模板生成新文档
 
-### 工具架构图
-```
-文档上传 → RAG工具(embedding&搜索) → 模板转换工具(DOC→JSON) → 
-模板填充工具(智能填充) → 长文档生成工具(多阶段生成) → 最终文档
-```
+## 🏗️ **系统架构**
 
-### 四个核心工具
+### **核心三工具架构**
+1. **📚 RAG工具** (`rag_tool`) - 文档embedding处理、智能搜索
+2. **🔥 长文档生成工具** (`long_document_generator`) - 专业长篇文档智能生成器
+3. **🎯 专业文档工具** (`professional_document_tool`) - 完整的RAG+AI智能文档处理功能
 
-1. **🔍 RAG工具 (rag_tool)**
-   - 文档embedding处理和向量化存储
-   - 智能搜索和内容检索
-   - 文档管理和清理功能
+### **工具特色功能对比**
 
-2. **📋 模板转换工具 (template_conversion)**
-   - DOC/DOCX文件转换为JSON结构化数据
-   - 模板字段提取和分析
-   - 支持多种占位符格式
+| 工具 | 主要功能 | 适用场景 | 特色能力 |
+|------|----------|----------|----------|
+| 📚 RAG工具 | 文档embedding和检索 | 知识库构建、语义搜索 | Chroma向量数据库、多格式支持 |
+| 🔥 长文档生成器 | 长篇专业文档生成 | 技术报告、研究文档 | 多轮对话、章节规划 |
+| 🎯 专业文档工具 | 完整文档处理流程 | 复杂专业文档需求 | **三模式集成、RAG增强** |
 
-3. **📝 模板填充工具 (template_inserter)**
-   - 基于模板JSON和内容进行智能填充
-   - AI驱动的内容生成和适配
-   - 保持原有格式和样式
+## 🚀 **使用方式**
 
-4. **📄 长文档生成工具 (long_document_generator)**
-   - 多阶段智能长文档生成
-   - 创作指令分析 → 大纲生成 → 精炼循环 → 章节生成 → 文档整合
-   - 支持技术报告、项目方案、分析文档等
-
-## 🚀 快速开始
-
-### 1. 环境准备
-
+### **Web界面使用**
 ```bash
-# 克隆项目
-git clone <repository-url>
-cd ReactAgent
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，设置 DEEPSEEK_API_KEY
-```
-
-### 2. 运行系统
-
-#### Web界面（推荐）
-```bash
-# 启动Web对话界面
 python web_app.py
 ```
-然后在浏览器中访问 http://localhost:5000 开始对话
+访问 `http://127.0.0.1:5000` 使用Web界面
 
-#### 命令行界面
+### **命令行使用**
 ```bash
-# 启动命令行界面
 python run_agent.py
 ```
 
-### 3. 使用示例
+### **专业文档工具使用示例**
 
-**文档管理:**
-```
-🤔 用户: 查看我上传了哪些文档
-🤖 Agent: [自动选择rag_tool，查询文档列表]
-```
-
-**模板处理:**
-```
-🤔 用户: 使用模板填充施工组织设计
-🤖 Agent: [自动选择template_conversion + template_inserter]
+#### **模式1：智能自动模式（推荐）**
+```python
+# 上传Word模板文件，系统自动选择最佳处理模式
+user_request = "基于现场复核记录生成安全管理文档"
+file_path = "uploads/现场复核记录.doc"
+# 系统将自动调用professional_agent模式，包含RAG检索
 ```
 
-**长文档生成:**
-```
-🤔 用户: 生成一份技术报告
-🤖 Agent: [自动选择long_document_generator，启动多阶段生成]
-```
-
-## 🧪 Agent推理示例
-
-### 用户请求: "生成技术报告"
-
-**Agent推理过程:**
-```
-Thought: 用户要求生成技术报告，这是一个长文档生成任务。
-我需要使用long_document_generator工具来完成这个任务。
-
-Action: long_document_generator
-Action Input: {"action": "generate", "request": "生成技术报告"}
-
-Observation: 技术报告生成任务已启动，任务ID: xxx...
-
-Final Answer: 技术报告《Emerging Technology Trends 2023》已成功生成...
+#### **模式2：专业代理模式**
+```python
+# 明确使用RAG+AI智能处理
+processing_mode = "professional_agent"
+template_id = "construction_safety"
+# 完整的RAG检索+AI合并流程
 ```
 
-## 📋 工具详细说明
-
-### RAG工具 (rag_tool)
-
-**核心功能:**
-- 文档上传和embedding处理
-- 智能搜索和内容检索
-- 文档列表查看和管理
-
-**Agent自动调用场景:**
-- "查看文档列表"
-- "上传文档到RAG"
-- "搜索相关内容"
-
-### 模板转换工具 (template_conversion)
-
-**核心功能:**
-- DOC/DOCX转换为JSON结构
-- 模板字段提取和分析
-- 模板列表管理
-
-**Agent自动调用场景:**
-- "处理模板文件"
-- "转换模板格式"
-- "分析模板结构"
-
-### 模板填充工具 (template_inserter)
-
-**核心功能:**
-- 基于模板进行智能填充
-- AI驱动的内容生成
-- 保持原有文档格式
-
-**Agent自动调用场景:**
-- "使用模板填充"
-- "基于模板生成文档"
-- "模板内容插入"
-
-### 长文档生成工具 (long_document_generator)
-
-**核心功能:**
-- 五阶段智能生成流程
-- 支持多种文档类型
-- 任务状态跟踪和管理
-
-**Agent自动调用场景:**
-- "生成技术报告"
-- "创建项目方案"
-- "撰写分析文档"
-
-**五阶段生成流程:**
-1. **创作指令分析** (5%): 分析用户需求
-2. **初始大纲生成** (15%): 生成文档大纲
-3. **大纲精炼循环** (25-40%): AI自我评审优化
-4. **章节内容生成** (40-85%): 逐章生成内容
-5. **文档整合** (85-100%): 生成完整文档
-
-## 📁 项目结构
-
-```
-ReactAgent/
-├── src/                                    # 源代码目录
-│   ├── enhanced_react_agent.py            # 纯ReAct Agent核心
-│   ├── rag_tool_chroma.py                 # RAG工具
-│   ├── template_conversion_tool.py        # 模板转换工具
-│   ├── template_inserter_tool.py          # 模板填充工具
-│   ├── long_document_generator_tool.py    # 长文档生成工具
-│   ├── tools.py                           # 工具注册表
-│   └── deepseek_client.py                 # DeepSeek API客户端
-├── long_generator/                        # 长文档生成器模块
-│   ├── generator.py                       # 核心生成逻辑
-│   ├── services.py                        # 外部服务接口
-│   └── config.py                          # 配置管理
-├── templates/                             # Web模板目录
-├── test/                                   # 测试文件目录
-├── generated_documents/                    # 生成的文档目录
-├── rag_storage/                           # RAG向量存储目录
-├── templates_storage/                     # 模板存储目录
-├── web_app.py                             # Web对话界面
-├── run_agent.py                           # 命令行启动脚本
-└── README.md                             # 项目说明
+#### **模式3：模板插入模式**
+```python
+# 保持Word模板结构，智能填充内容
+processing_mode = "template_insertion"
+# 适用于格式要求严格的模板文档
 ```
 
-## 🎯 支持的使用场景
+#### **模式4：内容合并模式**
+```python
+# 基于JSON模板生成新文档
+processing_mode = "content_merge"
+template_id = "heritage_building"
+# 适用于内容重组和标准化
+```
 
-### 文档管理
-- "查看我上传了哪些文档"
-- "清空所有文档"
-- "上传新的PDF文件"
+## 📋 **技术规格**
 
-### 模板处理
-- "处理这个Word模板"
-- "使用模板填充施工组织设计"
-- "基于模板生成报告"
+### **支持的文档格式**
+- **输入格式**: DOC, DOCX, PDF, TXT
+- **输出格式**: DOCX, JSON
+- **图片处理**: PNG, JPG, PDF
 
-### 长文档生成
-- "生成一份技术报告"
-- "创建项目实施方案"
-- "撰写详细的分析文档"
-- "制作可行性研究报告"
+### **AI模型集成**
+- **主模型**: DeepSeek-V2.5 (通过OpenRouter)
+- **向量化**: Chroma向量数据库
+- **RAG检索**: 语义相似度搜索
 
-### 复合任务
-- "基于上传的资料和模板生成最终文档"
-- "先处理模板再填充内容"
+### **专业领域优化**
+- 建筑工程文档
+- 安全管理规范
+- 古建筑保护方案
+- 技术报告标准
 
-## 🛠️ 依赖项
+## 🛠️ **安装和配置**
 
-- **python-docx**: Word文档处理
-- **chromadb**: 向量数据库
-- **PyMuPDF**: PDF文档处理
-- **requests**: HTTP请求
-- **python-dotenv**: 环境变量管理
-- **colorama**: 终端颜色输出
-
-## 📖 配置指南
-
-### 环境变量配置
-
-在 `.env` 文件中配置：
-
+### **环境要求**
 ```bash
-# DeepSeek API配置
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-
-# 可选配置
-RAG_STORAGE_DIR=rag_storage
-TEMPLATES_STORAGE_DIR=templates_storage
-GENERATED_DOCS_DIR=generated_documents
+pip install -r requirements.txt
 ```
 
-## 🎉 架构优势
+### **必需配置**
+```env
+OPENROUTER_API_KEY=your-api-key
+RAG_SERVICE_URL=http://43.139.19.144:3000  # 可选
+```
 
-1. **真正的ReAct设计**: 所有请求都通过推理循环处理
-2. **智能决策**: Agent自主选择最合适的工具
-3. **高度灵活**: 无需预设处理逻辑，动态适应
-4. **完全透明**: 每步推理过程都可见可追踪
-5. **易于扩展**: 新工具即插即用，无需修改核心逻辑
+### **可选依赖**
+- LibreOffice（用于DOC转换）
+- 额外的文档处理库
 
-**现在的ReactAgent是一个真正智能的文档处理系统，会根据用户需求自主思考、推理并选择合适的工具来完成任务！** 🚀
+## 📈 **新增功能亮点**
+
+### **🎯 专业文档工具的独特价值**
+
+1. **完整工作流程集成**
+   - 一次调用完成：文档分析 → RAG检索 → AI处理 → 格式输出
+
+2. **智能模式选择**
+   - 根据文件类型和用户需求自动选择最佳处理策略
+   - Word模板自动使用RAG增强的专业代理模式
+
+3. **RAG知识增强**
+   - 连接专业向量数据库，获取相关技术资料
+   - 上下文信息智能合并，提升文档专业性
+
+4. **三种处理模式无缝切换**
+   - 满足不同场景下的文档处理需求
+   - 从模板填充到内容重组的全覆盖
+
+5. **建筑工程领域深度优化**
+   - 专业术语识别和规范化
+   - 行业标准和格式要求自动应用
+
+## 🏆 **使用场景示例**
+
+### **场景1：现场复核记录处理**
+```
+用户上传：现场复核记录.doc
+系统识别：Word模板文档
+自动选择：professional_agent模式
+处理流程：RAG检索相关规范 → AI智能填充 → 保持原始格式
+输出结果：完整的专业复核报告
+```
+
+### **场景2：技术方案生成**
+```
+用户需求：生成古建筑保护技术方案
+选择模式：content_merge
+模板类型：heritage_building
+处理结果：结构化的专业技术文档
+```
+
+### **场景3：安全管理文档**
+```
+输入资料：施工现场照片和基础信息  
+处理模式：template_insertion
+输出格式：标准化安全管理表格
+质量保证：专业术语和格式规范
+```
+
+---
+
+**ReactAgent** - 让专业文档处理更智能、更高效、更专业！
