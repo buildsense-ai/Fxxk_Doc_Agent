@@ -6,6 +6,14 @@ Enhanced ReAct Agent Web Application
 
 import os
 import sys
+
+# 清除代理设置以避免API连接问题
+if 'ALL_PROXY' in os.environ:
+    del os.environ['ALL_PROXY']
+if 'HTTP_PROXY' in os.environ:
+    del os.environ['HTTP_PROXY']
+if 'HTTPS_PROXY' in os.environ:
+    del os.environ['HTTPS_PROXY']
 import json
 import uuid
 from datetime import datetime
@@ -111,9 +119,10 @@ def clean_ansi_codes(text):
     return ansi_escape.sub('', text)
 
 def stream_chat_response(user_message):
-    """纯ReactAgent流式输出聊天响应 - 所有交互都通过ReactAgent处理"""
+    """增强版ReactAgent流式输出 - 详细显示执行日志和推理过程"""
     import json
     import time
+    import logging
     
     try:
         # 发送开始信号
@@ -125,25 +134,33 @@ def stream_chat_response(user_message):
         
         # 发送ReactAgent开始信号
         yield f"data: {json.dumps({'type': 'thinking_start', 'content': '🧠 ReactAgent开始推理...'})}\n\n"
-        time.sleep(0.3)
+        yield f"data: {json.dumps({'type': 'log', 'log_type': 'info', 'content': '📋 系统三大核心功能判断开始'})}\n\n"
+        time.sleep(0.2)
         
         # 显示ReactAgent的工作流程
         yield f"data: {json.dumps({'type': 'thinking', 'content': '📝 接收用户请求，进入ReAct循环'})}\n\n"
-        time.sleep(0.3)
-        
-        yield f"data: {json.dumps({'type': 'thinking', 'content': '🔄 Thought → Action → Observation 循环开始'})}\n\n"
-        time.sleep(0.3)
+        yield f"data: {json.dumps({'type': 'log', 'log_type': 'info', 'content': '🔄 ReAct循环: Thought → Action → Observation'})}\n\n"
+        time.sleep(0.2)
         
         yield f"data: {json.dumps({'type': 'thinking', 'content': '🛠️ Agent将自主选择合适的工具'})}\n\n"
-        time.sleep(0.3)
+        yield f"data: {json.dumps({'type': 'log', 'log_type': 'info', 'content': '🎯 开始功能判断: 文件上传/长文档生成/模板文档生成/RAG检索'})}\n\n"
+        time.sleep(0.2)
         
         try:
+            # 开始处理
+            yield f"data: {json.dumps({'type': 'log', 'log_type': 'info', 'content': '🚀 ReactAgent开始处理用户请求'})}\n\n"
+            
+            # 显示问题分析
+            problem_preview = user_message[:50] + "..." if len(user_message) > 50 else user_message
+            log_content = f"🤔 开始分析问题: {problem_preview}"
+            yield f"data: {json.dumps({'type': 'log', 'log_type': 'info', 'content': log_content})}\n\n"
+            
             # 完全通过ReactAgent处理请求
-            # Agent内部会进行Thought → Action → Observation循环
             response = agent.solve(user_message, use_enhanced_framework=False)
             
             # 发送ReactAgent完成信号
             yield f"data: {json.dumps({'type': 'thinking_complete', 'content': '✅ ReactAgent推理完成'})}\n\n"
+            yield f"data: {json.dumps({'type': 'log', 'log_type': 'success', 'content': '🎉 任务处理完成，开始输出结果'})}\n\n"
             time.sleep(0.2)
             
             # 开始发送响应内容
@@ -168,13 +185,13 @@ def stream_chat_response(user_message):
                 # 流式发送每个句子
                 for i, sentence in enumerate(sentences):
                     yield f"data: {json.dumps({'type': 'content', 'content': sentence + (' ' if i < len(sentences) - 1 else '')})}\n\n"
-                    time.sleep(0.15)  # 控制打字速度
+                    time.sleep(0.1)  # 控制打字速度
                 
                 # 发送完整响应
                 yield f"data: {json.dumps({'type': 'content_complete', 'content': response})}\n\n"
             else:
                 yield f"data: {json.dumps({'type': 'content', 'content': '抱歉，ReactAgent没有生成有效的回答。'})}\n\n"
-            
+                
         except Exception as e:
             error_msg = f"ReactAgent执行过程中出错: {str(e)}"
             yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
@@ -246,7 +263,7 @@ def detect_file_type_with_ai(filename, file_path, agent):
 - 有填写说明或字段标签
 - 结构化的表单或表格
 - 空白的记录表、申请表、审核表等
-- 包含如：_____、【】、（）、{字段名}等占位符
+- 包含如：_____、【】、（）、{{字段名称}}等占位符
 
 【资料文档特征】：
 - 包含具体的信息和数据
@@ -426,6 +443,47 @@ def chat():
             'success': False,
             'error': f'处理请求时出错: {str(e)}'
         })
+
+@app.route('/api/chat/stream', methods=['POST'])
+def chat_stream():
+    """专门的流式聊天响应路由"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '').strip()
+        
+        if not user_message:
+            return jsonify({
+                'success': False,
+                'error': '请输入有效的消息'
+            }), 400
+        
+        # 检查Agent是否已初始化
+        if agent is None:
+            return jsonify({
+                'success': False,
+                'error': 'Agent未初始化，请刷新页面重试'
+            }), 500
+        
+        print(f"🤖 流式ReAct Agent处理: {user_message}")
+        
+        # 返回流式响应
+        return Response(
+            stream_chat_response(user_message),
+            content_type='text/event-stream; charset=utf-8',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'POST'
+            }
+        )
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'流式请求处理失败: {str(e)}'
+        }), 500
 
 @app.route('/api/system/status')
 def system_status():

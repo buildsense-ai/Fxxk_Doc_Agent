@@ -40,11 +40,30 @@ class DeepSeekClient:
         if not self.api_key:
             raise ValueError("DeepSeek API key is required. Set DEEPSEEK_API_KEY environment variable.")
         
+        # 创建httpx客户端，禁用代理以避免连接问题
+        try:
+            import httpx
+            # 通过环境变量方式禁用代理
+            if 'ALL_PROXY' in os.environ:
+                # 临时移除代理环境变量
+                old_proxy = os.environ.pop('ALL_PROXY', None)
+            http_client = httpx.Client(timeout=30.0)
+        except ImportError:
+            # 如果httpx不可用，使用默认配置
+            http_client = None
+        
         # 初始化OpenAI客户端（兼容DeepSeek API）
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url
-        )
+        if http_client:
+            self.client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                http_client=http_client
+            )
+        else:
+            self.client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url
+            )
     
     def chat_completion(
         self,

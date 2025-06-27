@@ -1,0 +1,18 @@
+{
+  "taskId": "30023c25-2146-4769-9548-ac043f5392d0",
+  "status": "brief_generation",
+  "progressPercentage": 5,
+  "currentStatusMessage": "正在分析需求并生成创作指令...",
+  "initialRequest": {
+    "chathistory": "",
+    "request": "生成一份标准的一号楼项目工程复核记录表"
+  },
+  "creativeBrief": "",
+  "projectName": "",
+  "outline": {},
+  "finalDocument": "",
+  "docxPublicUrl": "",
+  "docxLocalPath": "",
+  "errorLog": [],
+  "lastUpdatedTimestamp": "2025-06-26T19:57:25.320193"
+}

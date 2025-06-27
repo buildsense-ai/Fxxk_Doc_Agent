@@ -12,250 +12,353 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0a0a0a;
+            color: #e1e1e1;
             height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .chat-container {
-            width: 90%;
-            max-width: 1200px;
-            height: 90vh;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        .chat-header {
-            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            position: relative;
+        .header {
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
 
-        .chat-header h1 {
-            font-size: 1.8rem;
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .title {
+            font-size: 18px;
             font-weight: 600;
-            margin-bottom: 5px;
+            color: #fff;
         }
 
-        .chat-header p {
-            opacity: 0.9;
-            font-size: 0.9rem;
+        .subtitle {
+            font-size: 13px;
+            color: #888;
+            margin-left: 8px;
         }
 
-        .status-indicator {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 12px;
-            height: 12px;
-            background: #00ff88;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
+        .status-badge {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            border: 1px solid rgba(34, 197, 94, 0.2);
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.1); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .chat-messages {
+        .chat-container {
             flex: 1;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 24px;
+            overflow: hidden;
+        }
+
+        .messages-container {
+            flex: 1;
             overflow-y: auto;
-            background: #f8f9fa;
+            padding: 24px 0;
+            scroll-behavior: smooth;
         }
 
         .message {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: flex-start;
-            animation: slideIn 0.3s ease-out;
+            margin-bottom: 32px;
+            animation: slideIn 0.4s ease-out;
         }
 
         @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(16px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .message.user {
-            justify-content: flex-end;
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
         }
 
-        .message-content {
-            max-width: 70%;
-            padding: 15px 20px;
-            border-radius: 18px;
-            position: relative;
-            word-wrap: break-word;
-        }
-
-        .message.user .message-content {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-bottom-right-radius: 5px;
-        }
-
-        .message.assistant .message-content {
-            background: white;
-            color: #333;
-            border: 1px solid #e1e5e9;
-            border-bottom-left-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-
-        .message-avatar {
-            width: 40px;
-            height: 40px;
+        .avatar {
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            color: white;
-            margin: 0 10px;
-            flex-shrink: 0;
+            font-size: 14px;
+            font-weight: 500;
         }
 
-        .message.user .message-avatar {
+        .user-avatar {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
         }
 
-        .message.assistant .message-avatar {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        .assistant-avatar {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            color: white;
         }
 
-        .chat-input {
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e1e5e9;
+        .message-role {
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
         }
 
-        .input-container {
+        .message-content {
+            margin-left: 40px;
+            line-height: 1.6;
+            color: #e1e1e1;
+        }
+
+        .user-message .message-content {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: inline-block;
+            max-width: fit-content;
+        }
+
+        /* 思考过程样式 - 类似Gemini */
+        .thinking-container {
+            background: rgba(30, 30, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            margin: 16px 0;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .thinking-header {
+            background: rgba(40, 40, 40, 0.8);
+            padding: 12px 16px;
             display: flex;
-            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .thinking-header:hover {
+            background: rgba(50, 50, 50, 0.8);
+        }
+
+        .thinking-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #a1a1aa;
+        }
+
+        .thinking-icon {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .thinking-toggle {
+            color: #71717a;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .thinking-toggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        .thinking-content {
+            padding: 16px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #a1a1aa;
+            background: rgba(20, 20, 20, 0.5);
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            transition: max-height 0.3s ease;
+        }
+
+        .thinking-content.collapsed {
+            max-height: 0;
+            padding: 0 16px;
+            overflow: hidden;
+        }
+
+        /* 日志样式 */
+        .log-entry {
+            background: rgba(40, 40, 40, 0.3);
+            border-left: 3px solid #666;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin: 8px 0;
+            font-size: 13px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-8px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-info { border-left-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+        .log-success { border-left-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .log-warning { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+        .log-error { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+        .log-ai_call { border-left-color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+        .log-search { border-left-color: #06b6d4; background: rgba(6, 182, 212, 0.1); }
+        .log-tool { border-left-color: #f97316; background: rgba(249, 115, 22, 0.1); }
+
+        /* 输入区域 */
+        .input-container {
+            background: rgba(20, 20, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px 24px;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .input-wrapper {
+            display: flex;
             align-items: flex-end;
+            gap: 12px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .file-upload-btn {
+            background: rgba(60, 60, 60, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #a1a1aa;
+        }
+
+        .file-upload-btn:hover {
+            background: rgba(80, 80, 80, 0.8);
+            border-color: rgba(255, 255, 255, 0.2);
         }
 
         .message-input {
             flex: 1;
-            padding: 15px 20px;
-            border: 2px solid #e1e5e9;
-            border-radius: 25px;
-            font-size: 16px;
-            outline: none;
-            transition: border-color 0.3s;
+            background: rgba(40, 40, 40, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.4;
             resize: none;
-            min-height: 50px;
+            min-height: 40px;
             max-height: 120px;
-            font-family: inherit;
+            outline: none;
+            transition: all 0.2s;
         }
 
         .message-input:focus {
-            border-color: #4facfe;
+            border-color: rgba(102, 126, 234, 0.5);
+            background: rgba(50, 50, 50, 0.8);
         }
 
-        .send-button {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
+        .message-input::placeholder {
+            color: #6b7280;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            cursor: pointer;
+            border-radius: 8px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s;
-            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
         }
 
-        .send-button:hover {
-            transform: scale(1.05);
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
-        .send-button:disabled {
+        .send-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
         }
 
-        .file-upload {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-        }
-
-        .file-upload input[type=file] {
-            position: absolute;
-            left: -9999px;
-        }
-
-        .file-upload-button {
-            background: #f8f9fa;
-            border: 2px solid #e1e5e9;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-            flex-shrink: 0;
-        }
-
-        .file-upload-button:hover {
-            background: #e9ecef;
-            border-color: #4facfe;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 20px;
-            color: #666;
-        }
-
-        .loading.show {
-            display: block;
-        }
-
+        /* 打字指示器 */
         .typing-indicator {
             display: none;
-            padding: 15px 20px;
-            background: white;
-            border-radius: 18px;
-            border-bottom-left-radius: 5px;
-            margin-bottom: 20px;
-            max-width: 70%;
-            border: 1px solid #e1e5e9;
+            margin: 16px 0;
+            margin-left: 40px;
         }
 
         .typing-indicator.show {
             display: block;
-            animation: slideIn 0.3s ease-out;
         }
 
         .typing-dots {
             display: flex;
             gap: 4px;
+            align-items: center;
         }
 
         .typing-dot {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
-            background: #4facfe;
+            background: #6b7280;
             animation: typing 1.4s infinite ease-in-out;
         }
 
@@ -267,79 +370,115 @@
             40% { transform: scale(1); opacity: 1; }
         }
 
-        .error-message {
-            background: #fee;
-            color: #c33;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            border-left: 4px solid #c33;
-        }
-
-        .success-message {
-            background: #efe;
-            color: #363;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            border-left: 4px solid #363;
-        }
-
-        .tools-info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            backdrop-filter: blur(10px);
-        }
-
+        /* 响应式设计 */
         @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+            
             .chat-container {
-                width: 95%;
-                height: 95vh;
-                border-radius: 15px;
+                padding: 0 16px;
+            }
+            
+            .input-container {
+                padding: 16px;
             }
             
             .message-content {
-                max-width: 85%;
+                margin-left: 32px;
             }
-            
-            .chat-header h1 {
-                font-size: 1.4rem;
-            }
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 文件上传隐藏 */
+        #fileInput {
+            display: none;
+        }
+
+        /* 内容格式化 */
+        .message-content p {
+            margin-bottom: 12px;
+        }
+
+        .message-content ul, .message-content ol {
+            margin-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        .message-content code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 12px;
+        }
+
+        .message-content pre {
+            background: rgba(20, 20, 20, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+
+        .message-content strong {
+            color: #fff;
         }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">
-            <div class="tools-info" id="toolsInfo">工具加载中...</div>
-            <div class="status-indicator"></div>
-            <h1>🤖 ReactAgent</h1>
-            <p>ReAct智能代理 - 通过推理循环自主选择工具完成任务</p>
+    <div class="header">
+        <div class="header-left">
+            <div class="logo">🤖</div>
+            <div>
+                <span class="title">ReactAgent</span>
+                <span class="subtitle">智能文档助手</span>
+            </div>
         </div>
-        
-        <div class="chat-messages" id="chatMessages">
-            <div class="message assistant">
-                <div class="message-avatar">🤖</div>
+        <div class="status-badge" id="statusBadge">
+            系统就绪
+        </div>
+    </div>
+
+    <div class="chat-container">
+        <div class="messages-container" id="messagesContainer">
+            <div class="message">
+                <div class="message-header">
+                    <div class="avatar assistant-avatar">🤖</div>
+                    <div class="message-role">ReactAgent</div>
+                </div>
                 <div class="message-content">
-                    <p>你好！我是ReactAgent - 基于ReAct循环的智能代理。</p>
+                    <p>你好！我是ReactAgent，基于ReAct循环的智能代理。</p>
                     <p>我的工作方式：</p>
-                    <ul style="margin: 10px 0; padding-left: 20px;">
-                        <li>🧠 <strong>Thought</strong> - 推理分析你的需求</li>
-                        <li>⚡ <strong>Action</strong> - 自主选择合适的工具</li>
-                        <li>👁️ <strong>Observation</strong> - 观察执行结果</li>
-                        <li>🔄 <strong>循环迭代</strong> - 直到完成任务</li>
+                    <ul>
+                        <li><strong>思考</strong> - 分析你的需求和上下文</li>
+                        <li><strong>行动</strong> - 自主选择合适的工具</li>
+                        <li><strong>观察</strong> - 评估执行结果</li>
+                        <li><strong>迭代</strong> - 持续优化直到完成任务</li>
                     </ul>
-                    <p>我可以帮助你处理文档、生成报告、知识检索等任务。请告诉我你的需求，或直接上传文件！</p>
+                    <p>我可以帮助你处理文档、生成报告、知识检索等任务。请告诉我你的需求！</p>
                 </div>
             </div>
         </div>
-        
+
         <div class="typing-indicator" id="typingIndicator">
             <div class="typing-dots">
                 <div class="typing-dot"></div>
@@ -347,37 +486,38 @@
                 <div class="typing-dot"></div>
             </div>
         </div>
-        
-        <div class="chat-input">
-            <div class="input-container">
-                <div class="file-upload">
-                    <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls">
-                    <label for="fileInput" class="file-upload-button" title="上传文件">
-                        📎
-                    </label>
-                </div>
-                <textarea 
-                    class="message-input" 
-                    id="messageInput" 
-                    placeholder="输入你的问题或需求..."
-                    rows="1"
-                ></textarea>
-                <button class="send-button" id="sendButton" title="发送消息">
-                    ➤
-                </button>
-            </div>
+    </div>
+
+    <div class="input-container">
+        <div class="input-wrapper">
+            <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls">
+            <label for="fileInput" class="file-upload-btn" title="上传文件">
+                📎
+            </label>
+            <textarea 
+                class="message-input" 
+                id="messageInput" 
+                placeholder="输入你的问题或需求..."
+                rows="1"
+            ></textarea>
+            <button class="send-btn" id="sendButton" title="发送消息">
+                ➤
+            </button>
         </div>
     </div>
 
     <script>
-        class ChatApp {
+        class ModernChatApp {
             constructor() {
                 this.messageInput = document.getElementById('messageInput');
                 this.sendButton = document.getElementById('sendButton');
-                this.chatMessages = document.getElementById('chatMessages');
+                this.messagesContainer = document.getElementById('messagesContainer');
                 this.fileInput = document.getElementById('fileInput');
                 this.typingIndicator = document.getElementById('typingIndicator');
-                this.toolsInfo = document.getElementById('toolsInfo');
+                this.statusBadge = document.getElementById('statusBadge');
+                
+                this.currentThinkingContainer = null;
+                this.currentAssistantMessage = null;
                 
                 this.initializeEventListeners();
                 this.loadSystemStatus();
@@ -408,12 +548,18 @@
                     const data = await response.json();
                     
                     if (data.success) {
-                        this.toolsInfo.textContent = `${data.count} 个工具已加载`;
+                        this.statusBadge.textContent = `${data.count} 个工具已加载`;
+                        this.statusBadge.style.background = 'rgba(34, 197, 94, 0.1)';
+                        this.statusBadge.style.color = '#22c55e';
                     } else {
-                        this.toolsInfo.textContent = '工具加载失败';
+                        this.statusBadge.textContent = '工具加载失败';
+                        this.statusBadge.style.background = 'rgba(239, 68, 68, 0.1)';
+                        this.statusBadge.style.color = '#ef4444';
                     }
                 } catch (error) {
-                    this.toolsInfo.textContent = '系统连接中...';
+                    this.statusBadge.textContent = '系统连接中...';
+                    this.statusBadge.style.background = 'rgba(245, 158, 11, 0.1)';
+                    this.statusBadge.style.color = '#f59e0b';
                 }
             }
 
@@ -421,38 +567,208 @@
                 const message = this.messageInput.value.trim();
                 if (!message) return;
 
-                this.addMessage('user', message);
+                this.addUserMessage(message);
                 this.messageInput.value = '';
                 this.messageInput.style.height = 'auto';
                 this.showTypingIndicator();
                 this.toggleSendButton(false);
 
+                await this.sendStreamingMessage(message);
+            }
+
+            addUserMessage(content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <div class="avatar user-avatar">👤</div>
+                        <div class="message-role">You</div>
+                    </div>
+                    <div class="message-content">
+                        ${this.formatMessage(content)}
+                    </div>
+                `;
+                this.messagesContainer.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            createAssistantMessage() {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <div class="avatar assistant-avatar">🤖</div>
+                        <div class="message-role">ReactAgent</div>
+                    </div>
+                    <div class="message-content"></div>
+                `;
+                this.messagesContainer.appendChild(messageDiv);
+                this.currentAssistantMessage = messageDiv.querySelector('.message-content');
+                this.scrollToBottom();
+                return this.currentAssistantMessage;
+            }
+
+            async sendStreamingMessage(message) {
                 try {
-                    const response = await fetch('/api/chat', {
+                    const response = await fetch('/api/chat/stream', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({
-                            message: message,
-                            stream: false
-                        })
+                        body: JSON.stringify({ message: message })
                     });
 
-                    const data = await response.json();
-                    this.hideTypingIndicator();
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
 
-                    if (data.success) {
-                        this.addMessage('assistant', data.response);
-                    } else {
-                        this.addMessage('assistant', `❌ 错误: ${data.error}`, 'error');
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    let assistantContent = '';
+                    
+                    this.hideTypingIndicator();
+                    
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n');
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    await this.handleStreamData(data, assistantContent);
+                                    
+                                    if (data.type === 'content') {
+                                        assistantContent += data.content;
+                                        if (!this.currentAssistantMessage) {
+                                            this.createAssistantMessage();
+                                        }
+                                        this.updateAssistantContent(assistantContent);
+                                    }
+                                } catch (e) {
+                                    console.error('Error parsing stream data:', e);
+                                }
+                            }
+                        }
                     }
                 } catch (error) {
                     this.hideTypingIndicator();
-                    this.addMessage('assistant', `❌ 连接错误: ${error.message}`, 'error');
+                    this.addErrorMessage(`连接错误: ${error.message}`);
                 } finally {
                     this.toggleSendButton(true);
+                    this.currentThinkingContainer = null;
+                    this.currentAssistantMessage = null;
                 }
+            }
+
+            async handleStreamData(data, assistantContent) {
+                switch (data.type) {
+                    case 'thinking_start':
+                        this.createThinkingContainer(data.content);
+                        break;
+                    case 'thinking':
+                        this.updateThinkingContent(data.content);
+                        break;
+                    case 'thinking_complete':
+                        this.completeThinking();
+                        break;
+                    case 'log':
+                        this.addLogEntry(data.log_type, data.content);
+                        break;
+                    case 'content_start':
+                        if (!this.currentAssistantMessage) {
+                            this.createAssistantMessage();
+                        }
+                        break;
+                    case 'error':
+                        this.addErrorMessage(data.content);
+                        break;
+                    case 'complete':
+                        console.log('Stream completed');
+                        break;
+                }
+            }
+
+            createThinkingContainer(title) {
+                this.currentThinkingContainer = document.createElement('div');
+                this.currentThinkingContainer.className = 'thinking-container';
+                this.currentThinkingContainer.innerHTML = `
+                    <div class="thinking-header" onclick="this.parentElement.querySelector('.thinking-content').classList.toggle('collapsed'); this.querySelector('.thinking-toggle').classList.toggle('expanded')">
+                        <div class="thinking-title">
+                            <span class="thinking-icon">🧠</span>
+                            <span>思考中...</span>
+                        </div>
+                        <span class="thinking-toggle">▼</span>
+                    </div>
+                    <div class="thinking-content"></div>
+                `;
+                
+                this.messagesContainer.appendChild(this.currentThinkingContainer);
+                this.scrollToBottom();
+            }
+
+            updateThinkingContent(content) {
+                if (this.currentThinkingContainer) {
+                    const contentDiv = this.currentThinkingContainer.querySelector('.thinking-content');
+                    contentDiv.textContent += content + '\n';
+                    this.scrollToBottom();
+                }
+            }
+
+            completeThinking() {
+                if (this.currentThinkingContainer) {
+                    const header = this.currentThinkingContainer.querySelector('.thinking-title span:last-child');
+                    const icon = this.currentThinkingContainer.querySelector('.thinking-icon');
+                    const content = this.currentThinkingContainer.querySelector('.thinking-content');
+                    const toggle = this.currentThinkingContainer.querySelector('.thinking-toggle');
+                    
+                    header.textContent = '思考过程';
+                    icon.style.animation = 'none';
+                    content.classList.add('collapsed');
+                    toggle.classList.add('expanded');
+                }
+            }
+
+            addLogEntry(logType, content) {
+                const logDiv = document.createElement('div');
+                logDiv.className = `log-entry log-${logType}`;
+                logDiv.textContent = content;
+                
+                if (this.currentThinkingContainer) {
+                    const contentDiv = this.currentThinkingContainer.querySelector('.thinking-content');
+                    contentDiv.appendChild(logDiv);
+                } else {
+                    this.messagesContainer.appendChild(logDiv);
+                }
+                
+                this.scrollToBottom();
+            }
+
+            updateAssistantContent(content) {
+                if (this.currentAssistantMessage) {
+                    this.currentAssistantMessage.innerHTML = this.formatMessage(content);
+                    this.scrollToBottom();
+                }
+            }
+
+            addErrorMessage(content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="message-header">
+                        <div class="avatar assistant-avatar">❌</div>
+                        <div class="message-role">System</div>
+                    </div>
+                    <div class="message-content" style="color: #ef4444;">
+                        ${this.formatMessage(content)}
+                    </div>
+                `;
+                this.messagesContainer.appendChild(messageDiv);
+                this.scrollToBottom();
             }
 
             async handleFileUpload(event) {
@@ -462,7 +778,7 @@
                 const formData = new FormData();
                 formData.append('file', file);
 
-                this.addMessage('user', `📎 上传文件: ${file.name}`);
+                this.addUserMessage(`📎 上传文件: ${file.name}`);
                 this.showTypingIndicator();
 
                 try {
@@ -475,20 +791,24 @@
                     this.hideTypingIndicator();
 
                     if (data.success) {
-                        // 构建智能判断结果消息
-                        let resultMessage = `✅ ${data.message}\n\n`;
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = 'message';
+                        messageDiv.innerHTML = `
+                            <div class="message-header">
+                                <div class="avatar assistant-avatar">✅</div>
+                                <div class="message-role">System</div>
+                            </div>
+                            <div class="message-content" style="color: #22c55e;">
+                                <p><strong>文件上传成功</strong></p>
+                                <p>• 文件名: ${data.original_filename}</p>
+                                <p>• 类型: ${this.getFileTypeDisplay(data.file_type)}</p>
+                                <p>• 判断依据: ${data.detection_reason}</p>
+                                <p>• 处理方式: ${data.processing_type}</p>
+                            </div>
+                        `;
+                        this.messagesContainer.appendChild(messageDiv);
+                        this.scrollToBottom();
                         
-                        // 显示智能判断结果
-                        resultMessage += `🔍 **智能分析结果**:\n`;
-                        resultMessage += `• 文档类型: ${this.getFileTypeDisplay(data.file_type)}\n`;
-                        resultMessage += `• 判断依据: ${data.detection_reason}\n`;
-                        resultMessage += `• 处理方式: ${data.processing_type}\n`;
-                        resultMessage += `• 建议工具: ${data.suggested_tool}\n\n`;
-                        resultMessage += `🤖 ReactAgent 正在处理...`;
-                        
-                        this.addMessage('assistant', resultMessage, 'success');
-                        
-                        // 自动发送处理指令给ReactAgent
                         if (data.trigger_processing && data.processing_message) {
                             this.messageInput.value = data.processing_message;
                             setTimeout(() => {
@@ -496,14 +816,13 @@
                             }, 1500);
                         }
                     } else {
-                        this.addMessage('assistant', `❌ 上传失败: ${data.error}`, 'error');
+                        this.addErrorMessage(`上传失败: ${data.error}`);
                     }
                 } catch (error) {
                     this.hideTypingIndicator();
-                    this.addMessage('assistant', `❌ 上传错误: ${error.message}`, 'error');
+                    this.addErrorMessage(`上传错误: ${error.message}`);
                 }
 
-                // 清空文件输入
                 event.target.value = '';
             }
 
@@ -516,44 +835,13 @@
                 return typeMap[fileType] || '❓ 未知类型';
             }
 
-            addMessage(sender, content, type = 'normal') {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${sender}`;
-
-                const avatar = document.createElement('div');
-                avatar.className = 'message-avatar';
-                avatar.textContent = sender === 'user' ? '👤' : '🤖';
-
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'message-content';
-                
-                if (type === 'error') {
-                    contentDiv.innerHTML = `<div class="error-message">${this.formatMessage(content)}</div>`;
-                } else if (type === 'success') {
-                    contentDiv.innerHTML = `<div class="success-message">${this.formatMessage(content)}</div>`;
-                } else {
-                    contentDiv.innerHTML = this.formatMessage(content);
-                }
-
-                if (sender === 'user') {
-                    messageDiv.appendChild(contentDiv);
-                    messageDiv.appendChild(avatar);
-                } else {
-                    messageDiv.appendChild(avatar);
-                    messageDiv.appendChild(contentDiv);
-                }
-
-                this.chatMessages.appendChild(messageDiv);
-                this.scrollToBottom();
-            }
-
             formatMessage(content) {
-                // 简单的格式化：换行、列表等
                 return content
                     .replace(/\n/g, '<br>')
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/`(.*?)`/g, '<code style="background: #f1f3f4; padding: 2px 4px; border-radius: 3px;">$1</code>');
+                    .replace(/`(.*?)`/g, '<code>$1</code>')
+                    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
             }
 
             showTypingIndicator() {
@@ -571,15 +859,16 @@
 
             scrollToBottom() {
                 setTimeout(() => {
-                    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
-                }, 100);
+                    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+                }, 50);
             }
         }
 
         // 初始化应用
         document.addEventListener('DOMContentLoaded', () => {
-            new ChatApp();
+            new ModernChatApp();
         });
     </script>
 </body>
+</html>
 </html>

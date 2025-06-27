@@ -137,9 +137,17 @@ class AIService:
             raise ValueError("未设置DEEPSEEK_API_KEY或OPENROUTER_API_KEY环境变量")
         
         try:
+            # 创建httpx客户端，禁用代理以避免连接问题，增加超时时间
+            import httpx
+            http_client = httpx.Client(
+                timeout=120.0,  # 增加到2分钟超时
+                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            )
             client = openai.OpenAI(
                 api_key=self.config.DEEPSEEK_API_KEY,
-                base_url=self.config.DEEPSEEK_API_BASE
+                base_url=self.config.DEEPSEEK_API_BASE,
+                http_client=http_client,
+                timeout=120.0  # OpenAI客户端也设置2分钟超时
             )
         except Exception as e:
             raise Exception(f"初始化AI客户端失败: {e}")
@@ -183,7 +191,9 @@ class AIService:
             full_url = f"{base_url}?query={encoded_query}&top_k={top_k}"
             
             headers = {'accept': 'application/json'}
-            response = requests.get(full_url, headers=headers, timeout=20)
+            # 禁用代理以避免连接问题
+            proxies = {'http': '', 'https': ''}
+            response = requests.get(full_url, headers=headers, timeout=20, proxies=proxies)
             response.raise_for_status()
             
             data = response.json()

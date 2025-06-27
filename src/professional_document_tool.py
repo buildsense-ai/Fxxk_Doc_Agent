@@ -31,8 +31,8 @@ try:
     if src_dir not in sys.path:
         sys.path.insert(0, src_dir)
     
-    from professional_tool_agent_function import run_professional_tool_agent
-    from insert_template_function import (
+    from src.professional_tool_agent_function import run_professional_tool_agent
+    from src.insert_template_function import (
         template_insertion_with_context,
         merge_template_with_context,
         extract_content_from_file
