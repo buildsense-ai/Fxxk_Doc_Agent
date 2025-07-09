@@ -1,97 +1,46 @@
-# Byte-compiled / optimized / DLL files
+# ===================================================================
+# General Exclusions
+# ===================================================================
+
+# Environments
+.env
+.env.*
+!.env.example
+.venv
+env/
+venv/
+ENV/
+
+# Python Caches
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
 .pytest_cache/
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
 .mypy_cache/
-.dmypy.json
-dmypy.json
 
-# Pyre type checker
-.pyre/
+# Build and Distribution artifacts
+build/
+dist/
+eggs/
+*.egg-info/
+*.egg
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Personal data
-agent_memory.pkl
+# Database files
 *.sqlite3
+*.db
 
-# Project-specific ignores
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# ===================================================================
+# Project-Specific Exclusions for running the code
+# These directories contain generated data, caches, or user uploads
+# and are not needed for a collaborator to run the project.
+# ===================================================================
+
+# Top-level directories to ignore completely
+/agent_memory.pkl
 /generated_documents/
 /parser_output/
 /rag_storage/
@@ -99,8 +48,10 @@ agent_memory.pkl
 /uploads/
 /templates_storage/
 
+# Ignoring nested directories
 /image_rag_system/chroma/
 /image_rag_system/uploads/
+/image_rag_system/rag_storage/
 
 /juvenile-MCP-client/outputs/
 /juvenile-MCP-client/generated_docs/
@@ -110,14 +61,38 @@ agent_memory.pkl
 /juvenile-MCP-client/templates_storage/
 /juvenile-MCP-client/assets/
 
-/Paper2Poster/Paper2Poster/aaa_analysis_fixed/
-/Paper2Poster/Paper2Poster/aaa_final/
-/Paper2Poster/Paper2Poster/design_analysis/
-/Paper2Poster/Paper2Poster/paper_analysis/
-/Paper2Poster/Paper2Poster/parser_output/
+# This is the most important section for avoiding LFS objects
 /Paper2Poster/Paper2Poster/models_cache/
+/Paper2Poster/Paper2Poster/assets/
+/Paper2Poster/Paper2Poster/*_analysis/
+/Paper2Poster/Paper2Poster/*_final/
+/Paper2Poster/Paper2Poster/parser_output/
 
-# Ignore all docx files in generated_documents
-/generated_documents/**/*.docx
-/juvenile-MCP-client/generated_docs/**/*.docx
-/juvenile-MCP-client/outputs/**/*.docx 
+# ===================================================================
+# Large File Type Exclusions
+# Explicitly ignore common large file extensions everywhere
+# to prevent accidental LFS uploads.
+# ===================================================================
+*.pth
+*.safetensors
+*.onnx
+*.pkl
+*.bin
+*.model
+*.h5
+*.ckpt
+*.joblib
+*.pickle
+*.pt
+*.zip
+*.rar
+*.7z
+*.gz
+*.tar
+*.bz2
+*.pdf
+*.docx
+*.doc
+*.jpg
+*.png
+*.jpeg 
