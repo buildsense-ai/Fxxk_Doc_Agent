@@ -1,0 +1,26 @@
+{
+    "1": {
+        "caption": "表格 1",
+        "table_path": "parser_output\\20250708_165249_zu74gk\\table-1.png",
+        "width": 2314,
+        "height": 798,
+        "figure_size": 1846572,
+        "figure_aspect": 2.899749373433584
+    },
+    "2": {
+        "caption": "表格 2",
+        "table_path": "parser_output\\20250708_165249_zu74gk\\table-2.png",
+        "width": 2376,
+        "height": 950,
+        "figure_size": 2257200,
+        "figure_aspect": 2.5010526315789474
+    },
+    "3": {
+        "caption": "表格 3",
+        "table_path": "parser_output\\20250708_165249_zu74gk\\table-3.png",
+        "width": 2410,
+        "height": 990,
+        "figure_size": 2385900,
+        "figure_aspect": 2.4343434343434343
+    }
+}

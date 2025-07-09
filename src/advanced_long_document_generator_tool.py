@@ -25,7 +25,7 @@ try:
 except ImportError as e:
     logging.warning(f"部分依赖库未安装: {e}")
 
-from .tools import Tool
+from tools import Tool
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)

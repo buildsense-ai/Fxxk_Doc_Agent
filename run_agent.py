@@ -6,16 +6,21 @@ Enhanced ReAct Agent - 核心三工具架构版本
 
 import sys
 import os
+import argparse
 
 # 添加src目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from enhanced_react_agent import EnhancedReActAgent
-from deepseek_client import DeepSeekClient
-from tools import create_core_tool_registry, TOOL_USAGE_GUIDE
+from src.enhanced_react_agent import EnhancedReActAgent
+from src.deepseek_client import DeepSeekClient
+from src.tools import create_core_tool_registry
 
 def main():
     """主函数"""
+    parser = argparse.ArgumentParser(description="Enhanced ReAct Agent - 核心三工具架构")
+    parser.add_argument("--task", type=str, help="要执行的单个任务")
+    args = parser.parse_args()
+
     print("🚀 启动Enhanced ReAct Agent - 核心三工具架构")
     print("=" * 60)
     
@@ -45,6 +50,15 @@ def main():
     
     print("\n" + "=" * 60)
     print("🎯 Enhanced ReAct Agent 已启动！")
+    
+    if args.task:
+        print(f"🔄 正在执行任务: {args.task}")
+        print("-" * 50)
+        response = agent.solve(args.task)
+        print("-" * 50)
+        print(f"🤖 Agent回复:\n{response}")
+        return
+
     print("\n📋 核心三工具架构说明:")
     print("1️⃣ rag_tool - 文档embedding处理和智能搜索")
     print("2️⃣ template_processor - 模板字段提取")
@@ -77,14 +91,13 @@ def main():
             
             # 检查帮助命令
             if user_input.lower() in ['help', '帮助', 'h']:
-                print(TOOL_USAGE_GUIDE)
                 continue
             
             # 处理用户请求
             print(f"\n🔄 处理中: {user_input}")
             print("-" * 50)
             
-            response = agent.run(user_input)
+            response = agent.solve(user_input)
             
             print("-" * 50)
             print(f"🤖 Agent回复:\n{response}")

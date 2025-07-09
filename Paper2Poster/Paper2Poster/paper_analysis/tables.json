@@ -1,0 +1,50 @@
+{
+    "1": {
+        "caption": "Table 1: PaLM-540B prompting results on HotpotQA and Fever.",
+        "table_path": "paper_analysis\\table-1.png",
+        "width": 840,
+        "height": 561,
+        "figure_size": 471240,
+        "figure_aspect": 1.4973262032085561
+    },
+    "2": {
+        "caption": "Table 2: Types of success and failure modes of ReAct and CoT on HotpotQA, as well as their percentages in randomly selected examples studied by human.",
+        "table_path": "paper_analysis\\table-2.png",
+        "width": 1862,
+        "height": 340,
+        "figure_size": 633080,
+        "figure_aspect": 5.476470588235294
+    },
+    "3": {
+        "caption": "Table 3: AlfWorld task-specific success rates (%). BUTLER and BUTLER g results are from Table 4 of Shridhar et al. (2020b). All methods use greedy decoding, except that BUTLER uses beam search.",
+        "table_path": "paper_analysis\\table-3.png",
+        "width": 1373,
+        "height": 488,
+        "figure_size": 670024,
+        "figure_aspect": 2.8135245901639343
+    },
+    "4": {
+        "caption": "Table 4: Score and success rate (SR) on Webshop. IL/IL+RL taken from Yao et al. (2022).",
+        "table_path": "paper_analysis\\table-4.png",
+        "width": 464,
+        "height": 430,
+        "figure_size": 199520,
+        "figure_aspect": 1.0790697674418606
+    },
+    "7": {
+        "caption": "Table 5: ReAct prompting results using PaLM-540B vs. GPT-3 (text-davinci-002, greedy decoding). On HotpotQA, we randomly sample a subset of 500 validation questions. On ALFWorld, we use all 134 unseen validation task instances, and use the best prompt set according to PaLM-540B.",
+        "table_path": "paper_analysis\\table-7.png",
+        "width": 1124,
+        "height": 223,
+        "figure_size": 250652,
+        "figure_aspect": 5.040358744394619
+    },
+    "10": {
+        "caption": "Hotpot QA Prompts - Continued from previous page",
+        "table_path": "paper_analysis\\table-10.png",
+        "width": 1950,
+        "height": 3214,
+        "figure_size": 6267300,
+        "figure_aspect": 0.6067205973864344
+    }
+}

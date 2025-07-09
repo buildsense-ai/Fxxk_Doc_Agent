@@ -19,9 +19,16 @@ except ImportError as e:
     print("请安装: pip install chromadb PyMuPDF python-docx")
 
 try:
-    from .tools import Tool
+    from src.base_tool import Tool
 except ImportError:
-    from tools import Tool
+    # 如果无法导入Tool，创建一个基础类
+    class Tool:
+        def __init__(self):
+            self.name = "base_tool"
+            self.description = "基础工具类"
+        
+        def execute(self, action: str, **kwargs) -> str:
+            return "基础工具执行"
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -330,61 +337,66 @@ class RAGTool(Tool):
                 return self._list_documents()
             elif action == "clear":
                 return self._clear_documents()
+            elif action == "process_parsed_folder":
+                folder_path = kwargs.get("folder_path")
+                project_name = kwargs.get("project_name", "")
+                if not folder_path:
+                    return "❌ 请提供解析文件夹路径 (folder_path参数)"
+                return self._process_parsed_folder(folder_path, project_name)
             else:
-                return f"❌ 不支持的操作: {action}\n支持的操作: upload, search, fill_fields, list, clear"
+                return f"❌ 不支持的操作: {action}"
         
         except Exception as e:
             logger.error(f"RAG操作失败: {e}")
             return f"❌ 操作失败: {str(e)}"
     
-    def _upload_document(self, file_path: str, filename: str = "") -> str:
-        """上传文档进行embedding处理"""
+    def _upload_document(self, file_path: str, filename: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        上传并处理单个文档
+        
+        Args:
+            file_path: 文档文件路径
+            filename: 文档在系统中的名称（可选）
+            metadata: 附加的元数据（可选）
+            
+        Returns:
+            处理结果
+        """
         try:
-            if not filename:
-                filename = os.path.basename(file_path)
+            doc_name = filename if filename else os.path.basename(file_path)
+            doc_id = hashlib.md5(doc_name.encode()).hexdigest()
             
-            logger.info(f"📄 开始处理文档: {filename}")
+            logger.info(f"📤 开始处理文档: {doc_name}")
             
-            # 1. 提取文档内容
+            # 1. 提取内容
             content = self.extractor.extract_content(file_path)
             
-            if not content.strip():
-                return f"❌ 文档内容为空: {filename}"
+            # 2. 准备元数据
+            if metadata is None:
+                metadata = {}
             
-            # 2. 生成文档ID
-            doc_id = hashlib.md5(f"{filename}_{datetime.now().isoformat()}".encode()).hexdigest()
-            
+            # 确保基本元数据存在
+            metadata.setdefault("source", doc_name)
+            metadata.setdefault("upload_time", datetime.now().isoformat())
+            metadata.setdefault("file_size", os.path.getsize(file_path))
+
             # 3. 添加到向量库
-            metadata = {
-                "filename": filename,
-                "file_path": file_path,
-                "upload_time": datetime.now().isoformat(),
-                "content_length": len(content)
-            }
-            
             chunks_count = self.vector_store.add_document(doc_id, content, metadata)
             
-            result = f"✅ 文档上传成功！\n\n"
-            result += f"📄 文件名: {filename}\n"
-            result += f"🆔 文档ID: {doc_id}\n"
-            result += f"📊 内容长度: {len(content)} 字符\n"
-            result += f"🔢 分块数量: {chunks_count} 个\n"
-            result += f"⏰ 上传时间: {metadata['upload_time']}\n"
-            result += f"🔍 已完成embedding处理，可用于智能搜索"
+            logger.info(f"✅ 文档处理完成: {doc_name} (ID: {doc_id}), 共 {chunks_count} 个块")
             
-            logger.info(f"✅ 文档 {filename} 处理完成")
-            return result
-            
+            return f"✅ 文档 '{doc_name}' 上传并处理成功，共分为 {chunks_count} 个内容块。"
+        except FileNotFoundError:
+            return f"❌ 文件未找到: {file_path}"
         except Exception as e:
-            logger.error(f"文档上传失败: {e}")
-            return f"❌ 文档上传失败: {str(e)}"
+            return f"❌ 文档处理失败: {str(e)}"
     
-    def _search_documents(self, query: str) -> str:
-        """搜索相关文档内容"""
+    def _search_documents(self, query: str, top_k: int = 5) -> str:
+        """搜索相关文档"""
         try:
             logger.info(f"🔍 搜索查询: {query}")
             
-            results = self.vector_store.search_documents(query, n_results=5)
+            results = self.vector_store.search_documents(query, n_results=top_k)
             
             if not results:
                 return f"🔍 搜索查询: {query}\n\n❌ 未找到相关内容"
@@ -468,7 +480,112 @@ class RAGTool(Tool):
         """清空所有文档"""
         try:
             self.vector_store.clear_all()
-            return "✅ 所有文档已清空"
+            return "✅ 所有文档已成功清空。"
         except Exception as e:
-            logger.error(f"清空文档失败: {e}")
-            return f"❌ 清空文档失败: {str(e)}" 
+            return f"❌ 清空文档失败: {str(e)}"
+    
+    def _process_parsed_folder(self, folder_path: str, project_name: str = "") -> str:
+        """
+        处理PDF解析工具生成的文件夹，将其中的文本内容添加到RAG知识库
+        """
+        try:
+            content_file = os.path.join(folder_path, "parsed_content.json")
+            if not os.path.exists(content_file):
+                return f"❌ 'parsed_content.json' not found in {folder_path}"
+                
+            with open(content_file, 'r', encoding='utf-8') as f:
+                parsed_data = json.load(f)
+            
+            # 提取元数据
+            source_pdf_path = parsed_data.get("meta", {}).get("source_file", "未知来源")
+            doc_title = parsed_data.get("meta", {}).get("title", os.path.basename(folder_path))
+
+            # 准备要存入的文本块和元数据
+            chunks = []
+            metadatas = []
+            
+            # 使用sections作为文本块
+            for section in parsed_data.get("sections", []):
+                content = section.get("content")
+                if not content:
+                    continue
+                
+                chunks.append(content)
+                
+                # 为每个块准备元数据
+                chunk_metadata = {
+                    "source_file": source_pdf_path,
+                    "document_title": doc_title,
+                    "project_name": project_name,
+                    "section_title": section.get("title", ""),
+                    "source_page": section.get("source_page", 0)
+                }
+                metadatas.append(chunk_metadata)
+
+            if not chunks:
+                return "✅ 文件夹处理完成，没有找到可供embedding的文本内容。"
+
+            # 批量添加到向量库
+            total_chunks_added = 0
+            doc_id_prefix = hashlib.md5(source_pdf_path.encode()).hexdigest()
+
+            for i, chunk in enumerate(chunks):
+                doc_id = f"{doc_id_prefix}_section_{i}"
+                self.vector_store.collection.add(
+                    ids=[doc_id],
+                    documents=[chunk],
+                    metadatas=[metadatas[i]]
+                )
+                total_chunks_added += 1
+
+            return f"✅ 成功处理文件夹 '{folder_path}'，已添加 {total_chunks_added} 个文本块到知识库，来源: {os.path.basename(source_pdf_path)}."
+
+        except Exception as e:
+            logger.error(f"处理解析文件夹失败: {e}", exc_info=True)
+            return f"❌ 处理解析文件夹失败: {str(e)}"
+    
+    def _extract_text_from_parsed_data(self, parsed_data: Dict[str, Any]) -> str:
+        """从parsed_content.json中提取所有文本内容（保留备用）"""
+        text_parts = []
+        
+        try:
+            # 处理不同的解析数据结构
+            if isinstance(parsed_data, dict):
+                # 递归提取所有文本内容
+                self._extract_text_recursive(parsed_data, text_parts)
+            elif isinstance(parsed_data, list):
+                for item in parsed_data:
+                    if isinstance(item, dict):
+                        self._extract_text_recursive(item, text_parts)
+                    elif isinstance(item, str):
+                        text_parts.append(item)
+            elif isinstance(parsed_data, str):
+                text_parts.append(parsed_data)
+            
+            # 合并所有文本
+            full_text = "\n\n".join(text_parts)
+            return full_text.strip()
+            
+        except Exception as e:
+            logger.error(f"文本提取失败: {e}")
+            return ""
+    
+    def _extract_text_recursive(self, data: Dict[str, Any], text_parts: List[str]):
+        """
+        递归提取字典中的文本内容
+        """
+        for key, value in data.items():
+            if isinstance(value, str) and len(value.strip()) > 0:
+                # 添加有意义的文本内容
+                if len(value.strip()) > 10:  # 过滤太短的文本
+                    text_parts.append(f"[{key}]: {value.strip()}")
+            elif isinstance(value, dict):
+                # 递归处理嵌套字典
+                self._extract_text_recursive(value, text_parts)
+            elif isinstance(value, list):
+                # 处理列表
+                for i, item in enumerate(value):
+                    if isinstance(item, str) and len(item.strip()) > 10:
+                        text_parts.append(f"[{key}_{i}]: {item.strip()}")
+                    elif isinstance(item, dict):
+                        self._extract_text_recursive(item, text_parts) 

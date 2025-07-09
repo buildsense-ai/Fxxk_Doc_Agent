@@ -490,7 +490,7 @@
 
     <div class="input-container">
         <div class="input-wrapper">
-            <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls">
+            <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,.doc,.json,.csv,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp">
             <label for="fileInput" class="file-upload-btn" title="上传文件">
                 📎
             </label>
@@ -500,6 +500,16 @@
                 placeholder="输入你的问题或需求..."
                 rows="1"
             ></textarea>
+            
+            <!-- 图片描述输入框 -->
+            <div id="imageDescriptionContainer" style="display: none; margin-top: 10px;">
+                <textarea 
+                    id="imageDescription" 
+                    placeholder="请输入图片描述（可选）..."
+                    rows="2"
+                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"
+                ></textarea>
+            </div>
             <button class="send-btn" id="sendButton" title="发送消息">
                 ➤
             </button>
@@ -513,6 +523,8 @@
                 this.sendButton = document.getElementById('sendButton');
                 this.messagesContainer = document.getElementById('messagesContainer');
                 this.fileInput = document.getElementById('fileInput');
+                this.imageDescriptionContainer = document.getElementById('imageDescriptionContainer');
+                this.imageDescription = document.getElementById('imageDescription');
                 this.typingIndicator = document.getElementById('typingIndicator');
                 this.statusBadge = document.getElementById('statusBadge');
                 
@@ -533,6 +545,14 @@
                     }
                 });
                 this.fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
+                
+                // 图片描述输入框的回车处理
+                this.imageDescription.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.uploadImageWithDescription();
+                    }
+                });
             }
 
             autoResizeTextarea() {
@@ -775,6 +795,27 @@
                 const file = event.target.files[0];
                 if (!file) return;
 
+                // 检查文件大小 (100MB = 100 * 1024 * 1024 bytes)
+                const maxFileSize = 100 * 1024 * 1024; // 100MB
+                if (file.size > maxFileSize) {
+                    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                    this.addErrorMessage(`文件过大！文件大小: ${fileSizeMB}MB，最大限制: 100MB。请选择更小的文件。`);
+                    event.target.value = ''; // 清空文件选择
+                    return;
+                }
+
+                // 检查是否为图片文件
+                const isImage = file.type.startsWith('image/');
+                if (isImage) {
+                    // 显示图片描述输入框
+                    this.imageDescriptionContainer.style.display = 'block';
+                    this.imageDescription.focus();
+                    return; // 等待用户输入描述后再上传
+                } else {
+                    // 隐藏图片描述输入框
+                    this.imageDescriptionContainer.style.display = 'none';
+                }
+
                 const formData = new FormData();
                 formData.append('file', file);
 
@@ -826,10 +867,85 @@
                 event.target.value = '';
             }
 
+            async uploadImageWithDescription() {
+                const file = this.fileInput.files[0];
+                const description = this.imageDescription.value.trim();
+                
+                if (!file) return;
+
+                // 检查文件大小 (100MB = 100 * 1024 * 1024 bytes)
+                const maxFileSize = 100 * 1024 * 1024; // 100MB
+                if (file.size > maxFileSize) {
+                    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+                    this.addErrorMessage(`文件过大！文件大小: ${fileSizeMB}MB，最大限制: 100MB。请选择更小的文件。`);
+                    this.fileInput.value = '';
+                    this.imageDescription.value = '';
+                    this.imageDescriptionContainer.style.display = 'none';
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+                if (description) {
+                    formData.append('description', description);
+                }
+
+                this.addUserMessage(`📷 上传图片: ${file.name}${description ? ` (描述: ${description})` : ''}`);
+                this.showTypingIndicator();
+
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    this.hideTypingIndicator();
+
+                    if (data.success) {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = 'message';
+                        messageDiv.innerHTML = `
+                            <div class="message-header">
+                                <div class="avatar assistant-avatar">✅</div>
+                                <div class="message-role">System</div>
+                            </div>
+                            <div class="message-content" style="color: #22c55e;">
+                                <p><strong>图片上传成功</strong></p>
+                                <p>• 文件名: ${data.original_filename}</p>
+                                <p>• 类型: ${this.getFileTypeDisplay(data.file_type)}</p>
+                                <p>• 判断依据: ${data.detection_reason}</p>
+                                <p>• 处理方式: ${data.processing_type}</p>
+                            </div>
+                        `;
+                        this.messagesContainer.appendChild(messageDiv);
+                        this.scrollToBottom();
+                        
+                        if (data.trigger_processing && data.processing_message) {
+                            this.messageInput.value = data.processing_message;
+                            setTimeout(() => {
+                                this.sendMessage();
+                            }, 1500);
+                        }
+                    } else {
+                        this.addErrorMessage(`上传失败: ${data.error}`);
+                    }
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    this.addErrorMessage(`上传错误: ${error.message}`);
+                }
+
+                // 清空表单
+                this.fileInput.value = '';
+                this.imageDescription.value = '';
+                this.imageDescriptionContainer.style.display = 'none';
+            }
+
             getFileTypeDisplay(fileType) {
                 const typeMap = {
                     'template': '📋 模板文档',
-                    'material': '📚 资料文档', 
+                    'material': '📚 资料文档',
+                    'image': '🖼️ 图片文件',
                     'unknown': '❓ 未知类型'
                 };
                 return typeMap[fileType] || '❓ 未知类型';

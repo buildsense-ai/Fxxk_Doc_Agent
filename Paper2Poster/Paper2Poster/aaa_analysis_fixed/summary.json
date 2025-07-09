@@ -1,0 +1,18 @@
+{
+    "total_sections": 5,
+    "total_images": 12,
+    "total_tables": 0,
+    "meta_info": {
+        "poster_title": "Project Background and Location",
+        "authors": "Unknown",
+        "affiliations": "Unknown"
+    },
+    "section_titles": [
+        "Poster Title & Author",
+        "Project Background",
+        "Project Overview",
+        "Site Conditions",
+        "Cultural Relic"
+    ],
+    "model_used": "gpt-4o"
+}

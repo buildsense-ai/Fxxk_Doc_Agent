@@ -1,0 +1,29 @@
+{
+    "meta": {
+        "poster_title": "Project Background and Location",
+        "authors": "Not specified",
+        "affiliations": "Not specified"
+    },
+    "sections": [
+        {
+            "title": "Poster Title & Author",
+            "content": "Project Background and Location"
+        },
+        {
+            "title": "Project Background",
+            "content": "The project is located at No. 1, Alley 2, Jixiang Street, Hebian-She, Baiyun District, Guangzhou. The original building, known as the Zhiqing Building, was a two-story brick-concrete structure previously used as a senior activity center. Over forty years of exposure to the elements have caused significant structural damage, including extensive wall cracks that exceed safety standards, posing serious safety risks. Inspections revealed that the load-bearing structure has become brittle, making it susceptible to collapse from minor vibrations or impacts. Importantly, the building is adjacent to the Yiling Ancient Temple, a protected cultural relic, with a minimum distance of 6 meters between them. To ensure the safety of the temple and prevent irreversible damage from a sudden collapse, the local community decided to initiate a structural reinforcement project. This involves upgrading the building into a multifunctional complex that includes a cultural and sports activity center, a comprehensive service center for the elderly, and a community childcare facility. This project aims to provide modern public service spaces while creating a buffer zone to protect the cultural relics, blending historical and contemporary elements into a harmonious landscape."
+        },
+        {
+            "title": "Project Overview",
+            "content": "The proposed project involves constructing a community cultural and sports activity center. The front of the building will feature an open garden, while the main building will utilize a cast-in-place reinforced concrete frame-shear wall structural system. The building will have a width of 19.7 meters and a total depth of 22 meters, including the garden. The main building will cover an area of 125.9 square meters, with the garden occupying 65 square meters, resulting in a total building area of 473.6 square meters. The structure will be two stories high, with a strict height limit of 8.8 meters. It is classified as a second-class multi-story residential building with a seismic fortification intensity of 7 degrees. The exterior load-bearing sections will be supported by reinforced concrete columns, and the infill walls will use 200mm thick ordinary concrete hollow blocks. The main walls will be clad with 45x90 ceramic exterior wall tiles in three colors, with deep gray ceramic tiles used for all horizontal and vertical window frames. The exterior wall skirt will be 300mm high, also using deep gray ceramic tiles, and the second-floor roof will feature corrugated ceramic tiles. The construction will take place within the original Zhiqing Building's footprint, maintaining its relationship with the surrounding buildings."
+        },
+        {
+            "title": "Site Conditions",
+            "content": "The original Zhiqing Building has been demolished due to safety hazards, and the site has been leveled. The site is surrounded by residential buildings on the west and south sides, with building heights generally not exceeding 24 meters. The site features a retaining wall along its edge, with a distance of 1.6 meters from the adjacent cultural relic unit. The north side is bordered by a narrow alley, approximately 3 to 3.5 meters wide, which narrows inward. The west side of the site has a higher elevation, with the ground level reaching the height of a second-story building. The site is surrounded by residential buildings, with heights generally within 24 meters. The south side of the building is adjacent to a narrow alley."
+        },
+        {
+            "title": "Cultural Relic",
+            "content": "The Yiling Ancient Temple is located in Heliang Street, Baiyun District, Guangzhou, Guangdong Province. It was originally built in the 20th year of the Yongzheng period (1724) and underwent renovations during the Qianlong period and reconstruction in the 19th year of the Daoguang period (1838). It was further renovated in the first year of the Xuantong period and in 1999. The temple faces southeast and features a five-room, two-hall, three-courtyard layout with a width of 16.9 meters and a depth of 19.8 meters. It has a double-slope hard mountain roof with a dragon boat ridge, and the interior includes a complex beam structure with decorative elements. The walls are made of blue brick with stone bases, and the floors are paved with brick. The temple houses statues of the Yiling Emperor, Marshal Kang, and Guanyin in the main and side halls, with altars for offerings. The temple is well-preserved and holds historical and cultural value for studying local religious beliefs."
+        }
+    ]
+}

@@ -17,7 +17,7 @@ from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
 
 # 导入新的模板插入功能模块
-from .insert_template_function import (
+from insert_template_function import (
     merge_template_with_context,
     template_insertion_with_context,  # Add the proper template insertion function
     extract_content_from_file,

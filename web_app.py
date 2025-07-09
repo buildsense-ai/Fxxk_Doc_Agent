@@ -38,8 +38,8 @@ app.secret_key = 'your-secret-key-here'  # 在生产环境中使用更安全的�
 
 # 文件上传配置
 UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'doc', 'md'}
-MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx', 'doc', 'md', 'jpg', 'jpeg', 'png', 'gif', 'webp'}
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB - 增加到100MB以支持大文件
 
 # 确保上传目录存在
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -367,9 +367,12 @@ def initialize_agent():
         agent = EnhancedReActAgent(
             deepseek_client=deepseek_client,
             tool_registry=tool_registry,
-            verbose=True
+            verbose=True,  # 确保启用详细日志输出
+            enable_memory=False  # 暂时禁用记忆功能以专注测试PDF解析
         )
         print("✅ Enhanced ReAct Agent 初始化成功")
+        print("🔍 AI思考过程详细日志已启用")
+        print("⚠️ 记忆功能已暂时禁用以专注测试PDF解析")
         return True
         
     except Exception as e:
@@ -405,6 +408,8 @@ def chat():
         # 统一使用ReAct Agent处理所有对话
         # Agent会通过Thought → Action的方式自己决定调用哪个工具
         print(f"🤖 ReAct Agent处理: {user_message}")
+        print("=" * 60)
+        print("🧠 AI思考过程开始：")
         
         if stream:
             # 流式响应
@@ -420,6 +425,9 @@ def chat():
         else:
             # 非流式响应
             response = agent.solve(user_message, use_enhanced_framework=False)
+            print("=" * 60)
+            print("🧠 AI思考过程结束")
+            print(f"✅ 最终答案: {response[:100]}..." if len(response) > 100 else f"✅ 最终答案: {response}")
             
             # 获取会话历史（如果需要）
             if 'chat_history' not in session:
@@ -567,6 +575,8 @@ def upload_file():
             })
         
         file = request.files['file']
+        description = request.form.get('description', '')  # 获取图片描述
+        
         if file.filename == '':
             return jsonify({
                 'success': False,
@@ -578,6 +588,22 @@ def upload_file():
                 'success': False,
                 'error': f'不支持的文件类型。支持的格式: {", ".join(ALLOWED_EXTENSIONS)}'
             })
+        
+        # 检查文件大小（在保存前检查）
+        file.seek(0, 2)  # 移到文件末尾
+        file_size = file.tell()  # 获取文件大小
+        file.seek(0)  # 重置到文件开始
+        
+        max_size_mb = MAX_FILE_SIZE // (1024 * 1024)
+        file_size_mb = file_size / (1024 * 1024)
+        
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({
+                'success': False,
+                'error': f'文件过大！文件大小: {file_size_mb:.1f}MB，最大限制: {max_size_mb}MB。请选择更小的文件。'
+            })
+        
+        print(f"📊 文件大小检查通过: {file_size_mb:.1f}MB / {max_size_mb}MB")
         
         # 保存文件，保留原始文件名（包括中文）
         original_filename = file.filename or 'unknown_file'
@@ -602,13 +628,41 @@ def upload_file():
         
         print(f"✅ 文件保存成功: {final_filename}")
         
-        # 🔍 智能文档类型判断
-        file_type, detection_reason = detect_file_type_with_ai(original_filename, file_path, agent)
+        # 🔍 智能文件类型判断
+        file_ext = os.path.splitext(original_filename)[1].lower()
         
-        print(f"📋 文档类型判断结果: {file_type} - {detection_reason}")
+        # 检查是否为图片文件
+        if file_ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+            file_type = 'image'
+            detection_reason = '图片文件，将使用图片RAG系统处理'
+        else:
+            # 对于文档文件，使用AI判断
+            file_type, detection_reason = detect_file_type_with_ai(original_filename, file_path, agent)
         
-        # 🤖 根据文档类型自动生成处理指令
-        if file_type == 'template':
+        print(f"📋 文件类型判断结果: {file_type} - {detection_reason}")
+        
+        # 🤖 根据文件类型自动生成处理指令
+        if file_type == 'image':
+            # 图片文件 - 调用图片RAG工具
+            description_text = f"用户描述：{description}" if description else "无用户描述"
+            processing_message = f"""我刚刚上传了一张图片：
+📁 文件名：{original_filename}
+📂 保存路径：{file_path}
+📝 {description_text}
+🔍 判断依据：{detection_reason}
+
+请使用ReAct循环处理这张图片：
+1. Thought：分析这是一个图片文件，需要使用图片RAG系统进行上传和处理
+2. Action：image_rag_tool
+3. Action Input：{{"action": "upload_image", "file_path": "{file_path}", "description": "{description}"}}
+4. 根据Observation结果继续推理和行动
+
+请完全按照ReAct循环（Thought → Action → Observation）来处理这张图片。"""
+            
+            processing_type = "图片RAG处理"
+            tool_name = "image_rag_tool"
+            
+        elif file_type == 'template':
             # 模板文档 - 调用模板转换工具
             processing_message = f"""我刚刚上传了一个模板文档：
 📁 文件名：{original_filename}
@@ -680,6 +734,15 @@ def upload_file():
             'success': False,
             'error': f'文件上传失败: {str(e)}'
         })
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """413错误处理 - 文件过大"""
+    max_size_mb = MAX_FILE_SIZE // (1024 * 1024)
+    return jsonify({
+        'success': False,
+        'error': f'文件过大！当前限制为 {max_size_mb}MB，请选择更小的文件或联系管理员。'
+    }), 413
 
 @app.errorhandler(404)
 def not_found(error):

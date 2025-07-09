@@ -1,0 +1,21 @@
+{
+    "total_sections": 8,
+    "total_images": 6,
+    "total_tables": 6,
+    "meta_info": {
+        "poster_title": "REACT: Synergizing Reasoning and Acting in Language Models",
+        "authors": "Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, Yuan Cao",
+        "affiliations": "Department of Computer Science, Princeton University; Google Research, Brain team"
+    },
+    "section_titles": [
+        "Poster Title & Author",
+        "Abstract",
+        "Introduction",
+        "ReAct Methodology",
+        "Knowledge-Intensive Tasks",
+        "Decision Making Tasks",
+        "Results & Observations",
+        "Conclusion"
+    ],
+    "model_used": "gpt-4o-mini"
+}

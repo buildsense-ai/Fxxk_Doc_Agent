@@ -1,0 +1,18 @@
+{
+    "total_sections": 5,
+    "total_images": 12,
+    "total_tables": 0,
+    "meta_info": {
+        "poster_title": "项目背景与概况",
+        "authors": "未知",
+        "affiliations": "未知"
+    },
+    "section_titles": [
+        "Poster Title & Author",
+        "项目背景",
+        "项目概况",
+        "场地情况",
+        "文保单位"
+    ],
+    "model_used": "gpt-4o-mini"
+}
