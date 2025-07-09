@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "local-mcp": {
+      "url": "http://localhost:8000/mcp",
+      "description": "Local MCP server running on port 8000"
+    }
+  }
+} 

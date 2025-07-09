@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Embedding 搜索测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            padding: 30px;
+            text-align: center;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .stats-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-left: 5px solid #4facfe;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4facfe;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .search-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+
+        .search-form {
+            display: grid;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+            align-items: end;
+        }
+
+        label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        input[type="text"], select {
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .results-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .results-count {
+            background: #4facfe;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4facfe;
+            transition: all 0.3s ease;
+        }
+
+        .result-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .content-type-badge {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .content-type-text {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .content-type-image {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .similarity-score {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .result-content {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: #333;
+            margin-bottom: 15px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .result-metadata {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .metadata-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .metadata-label {
+            font-weight: 600;
+            color: #4facfe;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c62828;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .quick-search {
+            margin-top: 20px;
+        }
+
+        .quick-search-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .quick-search-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .quick-search-btn {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .quick-search-btn:hover {
+            background: #4facfe;
+            color: white;
+            border-color: #4facfe;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .result-metadata {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 PDF Embedding 搜索测试</h1>
+            <p>测试统一PDF内容向量化搜索效果</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 统计信息区域 -->
+            <div class="stats-section">
+                <h2>📈 Embedding 统计信息</h2>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalEmbeddings">-</div>
+                        <div class="stat-label">总 Embeddings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="textEmbeddings">-</div>
+                        <div class="stat-label">文本 Embeddings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="imageEmbeddings">-</div>
+                        <div class="stat-label">图片 Embeddings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="collectionName">-</div>
+                        <div class="stat-label">集合名称</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 搜索区域 -->
+            <div class="search-section">
+                <h2>🔍 智能搜索</h2>
+                <form class="search-form" id="searchForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="searchQuery">搜索内容</label>
+                            <input type="text" id="searchQuery" name="query" placeholder="输入搜索关键词..." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="contentType">内容类型</label>
+                            <select id="contentType" name="content_type">
+                                <option value="all">全部内容</option>
+                                <option value="text">仅文本</option>
+                                <option value="image">仅图片</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="topK">结果数量</label>
+                            <select id="topK" name="top_k">
+                                <option value="5">5个结果</option>
+                                <option value="10">10个结果</option>
+                                <option value="15">15个结果</option>
+                                <option value="20">20个结果</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="search-btn" id="searchBtn">
+                        🔍 开始搜索
+                    </button>
+                </form>
+
+                <!-- 快速搜索按钮 -->
+                <div class="quick-search">
+                    <div class="quick-search-title">💡 快速搜索建议</div>
+                    <div class="quick-search-buttons">
+                        <button class="quick-search-btn" onclick="quickSearch('建筑设计', 'all')">建筑设计</button>
+                        <button class="quick-search-btn" onclick="quickSearch('项目背景', 'text')">项目背景</button>
+                        <button class="quick-search-btn" onclick="quickSearch('平面图', 'image')">平面图</button>
+                        <button class="quick-search-btn" onclick="quickSearch('监测', 'all')">监测</button>
+                        <button class="quick-search-btn" onclick="quickSearch('施工', 'text')">施工</button>
+                        <button class="quick-search-btn" onclick="quickSearch('现状照片', 'image')">现状照片</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 搜索结果区域 -->
+            <div class="results-section" id="resultsSection">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔍</div>
+                    <h3>开始搜索PDF内容</h3>
+                    <p>输入关键词，选择内容类型，体验智能语义搜索</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let isLoading = false;
+        let lastSearchResults = null;
+
+        // 页面加载时获取统计信息
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+            setupEventListeners();
+        });
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            const searchForm = document.getElementById('searchForm');
+            searchForm.addEventListener('submit', handleSearch);
+        }
+
+        // 加载统计信息
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/pdf_embedding_stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.statistics;
+                    document.getElementById('totalEmbeddings').textContent = stats.total_embeddings || 0;
+                    document.getElementById('textEmbeddings').textContent = stats.text_embeddings || 0;
+                    document.getElementById('imageEmbeddings').textContent = stats.image_embeddings || 0;
+                    document.getElementById('collectionName').textContent = stats.collection_name || 'N/A';
+                } else {
+                    console.error('获取统计信息失败:', data.message);
+                }
+            } catch (error) {
+                console.error('加载统计信息出错:', error);
+            }
+        }
+
+        // 处理搜索表单提交
+        async function handleSearch(event) {
+            event.preventDefault();
+            
+            if (isLoading) return;
+            
+            const formData = new FormData(event.target);
+            const searchParams = {
+                query: formData.get('query'),
+                content_type: formData.get('content_type'),
+                top_k: parseInt(formData.get('top_k'))
+            };
+            
+            await performSearch(searchParams);
+        }
+
+        // 快速搜索
+        async function quickSearch(query, contentType) {
+            const searchParams = {
+                query: query,
+                content_type: contentType,
+                top_k: 5
+            };
+            
+            // 更新表单显示
+            document.getElementById('searchQuery').value = query;
+            document.getElementById('contentType').value = contentType;
+            document.getElementById('topK').value = '5';
+            
+            await performSearch(searchParams);
+        }
+
+        // 执行搜索
+        async function performSearch(params) {
+            isLoading = true;
+            updateSearchButton(true);
+            showLoading();
+            
+            try {
+                const response = await fetch('/api/pdf_embedding_search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(params)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    lastSearchResults = data;
+                    displayResults(data);
+                } else {
+                    showError(data.message || '搜索失败');
+                }
+            } catch (error) {
+                console.error('搜索出错:', error);
+                showError('网络错误，请重试');
+            } finally {
+                isLoading = false;
+                updateSearchButton(false);
+            }
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            const resultsSection = document.getElementById('resultsSection');
+            resultsSection.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在搜索中...</p>
+                </div>
+            `;
+        }
+
+        // 显示错误信息
+        function showError(message) {
+            const resultsSection = document.getElementById('resultsSection');
+            resultsSection.innerHTML = `
+                <div class="error-message">
+                    ❌ ${message}
+                </div>
+                <div class="empty-state">
+                    <div class="empty-state-icon">😞</div>
+                    <h3>搜索失败</h3>
+                    <p>请检查网络连接或稍后重试</p>
+                </div>
+            `;
+        }
+
+        // 显示搜索结果
+        function displayResults(data) {
+            const resultsSection = document.getElementById('resultsSection');
+            
+            if (!data.results || data.results.length === 0) {
+                resultsSection.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <h3>未找到相关内容</h3>
+                        <p>尝试使用不同的关键词或调整搜索类型</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="results-header">
+                    <div class="results-title">搜索结果</div>
+                    <div class="results-count">${data.total_results} 个结果</div>
+                </div>
+                <div style="margin-bottom: 20px; padding: 15px; background: #f0f8ff; border-radius: 8px;">
+                    <strong>搜索范围:</strong> ${data.search_scope} | 
+                    <strong>文本结果:</strong> ${data.text_results} | 
+                    <strong>图片结果:</strong> ${data.image_results}
+                </div>
+            `;
+
+            data.results.forEach((result, index) => {
+                const contentType = result.content_type;
+                const badgeClass = contentType === 'text' ? 'content-type-text' : 'content-type-image';
+                const similarityScore = result.distance ? (1 - result.distance).toFixed(3) : 'N/A';
+                
+                html += `
+                    <div class="result-item">
+                        <div class="result-header">
+                            <span class="content-type-badge ${badgeClass}">
+                                ${contentType === 'text' ? '📝 文本' : '🖼️ 图片'}
+                            </span>
+                            <span class="similarity-score">相似度: ${similarityScore}</span>
+                        </div>
+                        <div class="result-content">
+                            ${escapeHtml(result.content)}
+                        </div>
+                        <div class="result-metadata">
+                            <div class="metadata-item">
+                                <span class="metadata-label">📄 文档:</span>
+                                <span title="${escapeHtml(result.metadata.source_file || '')}">${formatDocumentTitle(result.metadata.document_title, result.metadata.source_file)}</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">📍 位置:</span>
+                                <span>${contentType === 'text' ? `第${result.metadata.source_page}页` : `图片 ${result.metadata.image_id}`}</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">🆔 ID:</span>
+                                <span title="${escapeHtml(result.id)}">${truncateText(result.id, 30)}</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">⏰ 时间:</span>
+                                <span>${formatDate(result.metadata.embedding_time)}</span>
+                            </div>
+                            ${contentType === 'image' ? `
+                            <div class="metadata-item">
+                                <span class="metadata-label">🖼️ 尺寸:</span>
+                                <span>${result.metadata.width || 0} × ${result.metadata.height || 0}</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">📐 长宽比:</span>
+                                <span>${(result.metadata.figure_aspect || 1).toFixed(2)}</span>
+                            </div>
+                            ` : `
+                            <div class="metadata-item">
+                                <span class="metadata-label">📏 长度:</span>
+                                <span>${result.metadata.content_length || 0} 字符</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">📑 章节:</span>
+                                <span>第 ${(result.metadata.section_index || 0) + 1} 节</span>
+                            </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultsSection.innerHTML = html;
+        }
+
+        // 更新搜索按钮状态
+        function updateSearchButton(loading) {
+            const searchBtn = document.getElementById('searchBtn');
+            if (loading) {
+                searchBtn.disabled = true;
+                searchBtn.innerHTML = '🔄 搜索中...';
+            } else {
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = '🔍 开始搜索';
+            }
+        }
+
+        // 转义HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN');
+        }
+
+        // 格式化文档标题
+        function formatDocumentTitle(title, sourceFile) {
+            // 如果标题可用且不包含乱码，使用标题
+            if (title && title !== 'unknown' && !containsGarbledText(title)) {
+                return escapeHtml(title);
+            }
+            
+            // 否则尝试从源文件路径提取文件名
+            if (sourceFile && sourceFile !== 'unknown') {
+                const filename = extractCleanFilename(sourceFile);
+                if (filename && !containsGarbledText(filename)) {
+                    return escapeHtml(filename);
+                }
+            }
+            
+            return '📄 PDF文档';
+        }
+
+        // 检查是否包含乱码文本
+        function containsGarbledText(text) {
+            if (!text) return false;
+            // 检查常见的乱码字符
+            const garbledChars = ['å', 'ç', 'è', 'ã', 'â', 'ä', 'æ', 'é'];
+            return garbledChars.some(char => text.includes(char));
+        }
+
+        // 从文件路径提取干净的文件名
+        function extractCleanFilename(filepath) {
+            if (!filepath) return null;
+            
+            try {
+                // 提取文件名
+                let filename = filepath.split(/[\\\/]/).pop();
+                
+                // 尝试URL解码
+                try {
+                    filename = decodeURIComponent(filename);
+                } catch (e) {
+                    // 如果解码失败，继续使用原文件名
+                }
+                
+                // 如果仍然包含乱码，尝试提取时间戳
+                if (containsGarbledText(filename)) {
+                    const timestampMatch = filename.match(/(\d{13})/);
+                    if (timestampMatch) {
+                        const timestamp = timestampMatch[1];
+                        // 转换时间戳为可读日期
+                        const date = new Date(parseInt(timestamp));
+                        const dateStr = date.toLocaleDateString('zh-CN');
+                        return `文档_${dateStr}.pdf`;
+                    }
+                    return null;
+                }
+                
+                return filename;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 截断文本
+        function truncateText(text, maxLength) {
+            if (!text || text.length <= maxLength) return escapeHtml(text);
+            return escapeHtml(text.substring(0, maxLength)) + '...';
+        }
+    </script>
+</body>
+</html> 

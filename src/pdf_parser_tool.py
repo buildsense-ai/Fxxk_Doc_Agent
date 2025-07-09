@@ -20,6 +20,9 @@ project_root = current_dir.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
+# 定义默认的解析输出目录
+DEFAULT_PARSER_OUTPUT_DIR = project_root / "parser_output"
+
 # 添加Paper2Poster路径
 paper2poster_dir = project_root / "Paper2Poster" / "Paper2Poster"
 if paper2poster_dir.exists():
@@ -121,6 +124,24 @@ except ImportError:
     print("PyTorch不可用，某些高级功能可能受限")
 
 from src.base_tool import Tool
+# --- Import the embedding service ---
+try:
+    from src.pdf_embedding_service import PDFEmbeddingService
+    EMBEDDING_SERVICE_AVAILABLE = True
+    print("✅ PDF Embedding Service可用")
+except ImportError as e:
+    EMBEDDING_SERVICE_AVAILABLE = False
+    print(f"⚠️ PDF Embedding Service不可用: {e}")
+
+# --- Import the OpenRouter client for image description ---
+try:
+    from src.openrouter_client import OpenRouterClient
+    OPENROUTER_CLIENT_AVAILABLE = True
+    print("✅ OpenRouter Client可用")
+except ImportError as e:
+    OPENROUTER_CLIENT_AVAILABLE = False
+    print(f"⚠️ OpenRouter Client不可用: {e}")
+
 
 # 加载环境变量
 if DEPENDENCIES_AVAILABLE:
@@ -251,17 +272,20 @@ class OpenRouterParserAgent:
             self.actor_model = None
             self.actor_agent = None
     
-    def parse_raw(self, pdf_path: str, output_dir: str = "parser_output") -> Tuple[Dict, Dict, Dict]:
+    def parse_raw(self, pdf_path: str, output_dir: str = None) -> Tuple[Dict, Dict, Dict]:
         """
         解析PDF文件
         
         Args:
             pdf_path: PDF文件路径
-            output_dir: 输出目录
+            output_dir: 输出目录，默认为项目根目录下的parser_output
             
         Returns:
             Tuple[Dict, Dict, Dict]: (content_json, images, tables)
         """
+        if output_dir is None:
+            output_dir = str(DEFAULT_PARSER_OUTPUT_DIR)
+
         print(f"🔄 开始解析PDF: {pdf_path}")
         print(f"📊 使用模型: {self.model_name}")
         
@@ -619,19 +643,22 @@ Output:"""
         }
         return stats
 
-    def parse_without_llm(self, pdf_path: str, output_dir: str = "parser_output") -> tuple[dict, dict, dict]:
+    def parse_without_llm(self, pdf_path: str, output_dir: str = None) -> tuple[dict, dict, dict]:
         """
         直接使用Docling进行解析，不通过LLM重组内容。
         这对于结构化较好的文档或不需要智能重组的场景更高效。
         """
-        print("📄 跳过LLM重组，执行原始解析...")
+        if output_dir is None:
+            output_dir = str(DEFAULT_PARSER_OUTPUT_DIR)
+
+        print(f"📄 跳过LLM重组，执行原始解析...")
         if not self.doc_converter:
             raise RuntimeError("Docling转换器未初始化。")
 
         output_path = Path(output_dir)
         output_path.mkdir(exist_ok=True)
 
-        print("📄 使用Docling进行原始解析...")
+        print(f"📄 使用Docling进行原始解析...")
         # 使用docling转换器处理PDF - 修复参数格式
         raw_result = self.doc_converter.convert(source=Path(pdf_path))
         print("✅ Docling原始解析完成。")
@@ -738,7 +765,13 @@ class PDFParserTool(Tool):
         # 为每个解析任务创建一个唯一的输出目录
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         random_id = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=6))
-        output_dir = kwargs.get("output_dir", os.path.join("parser_output", f"{timestamp}_{random_id}"))
+        
+        # --- FIX: Use the absolute default path as the base ---
+        base_output_dir = kwargs.get("output_dir", DEFAULT_PARSER_OUTPUT_DIR)
+        output_dir = os.path.join(base_output_dir, f"{timestamp}_{random_id}")
+        
+        # 确保基础目录存在
+        os.makedirs(base_output_dir, exist_ok=True)
 
         model_name = kwargs.get("model_name", "gpt-4o")
         
@@ -768,11 +801,60 @@ class PDFParserTool(Tool):
             # 获取统计信息
             stats = self.parser_agent.get_parsing_stats(content_json, images, tables)
             
+            # --- 统一的PDF内容embedding处理 ---
+            embedding_stats = {}
+            if EMBEDDING_SERVICE_AVAILABLE:
+                try:
+                    print("💡 开始统一的PDF内容embedding处理...")
+                    embedding_service = PDFEmbeddingService(enable_vlm_description=True)
+                    
+                    # 使用统一的embedding服务处理parsed_content.json和images.json
+                    content_file_path = os.path.join(output_dir, "parsed_content.json")
+                    images_file_path = os.path.join(output_dir, "images.json")
+                    
+                    # 调用统一的embedding方法
+                    embedding_result = embedding_service.embed_parsed_pdf(
+                        parsed_content_path=content_file_path,
+                        images_json_path=images_file_path,
+                        parser_output_dir=output_dir
+                    )
+                    
+                    # 统一的结果处理
+                    if not embedding_result.get("errors"):
+                        embedding_stats = {
+                            "status": "success",
+                            "text_embeddings": embedding_result.get("text_embeddings", 0),
+                            "image_embeddings": embedding_result.get("image_embeddings", 0),
+                            "total_embeddings": embedding_result.get("total_embeddings", 0),
+                            "method": "unified_embedding_service"
+                        }
+                        print(f"✅ 统一embedding完成: 文本{embedding_stats['text_embeddings']}项, 图片{embedding_stats['image_embeddings']}项")
+                    else:
+                        embedding_stats = {
+                            "status": "partial_success",
+                            "text_embeddings": embedding_result.get("text_embeddings", 0),
+                            "image_embeddings": embedding_result.get("image_embeddings", 0),
+                            "total_embeddings": embedding_result.get("total_embeddings", 0),
+                            "errors": embedding_result.get("errors", []),
+                            "method": "unified_embedding_service"
+                        }
+                        print(f"⚠️ 统一embedding部分成功: 文本{embedding_stats['text_embeddings']}项, 图片{embedding_stats['image_embeddings']}项")
+                        for error in embedding_result.get("errors", []):
+                            print(f"  - 错误: {error}")
+                    
+                except Exception as e:
+                    print(f"❌ 统一embedding处理失败: {e}")
+                    embedding_stats = {"status": "error", "message": str(e)}
+            else:
+                embedding_stats = {"status": "skipped", "message": "Embedding service not available."}
+
+
             # 准备结构化输出
             result = {
                 "status": "success",
                 "message": "PDF解析完成",
                 "output_directory": output_dir,
+                "embedding_info": embedding_stats,
                 "statistics": {
                     "model_used": stats.get('model_used', 'unknown'),
                     "sections_count": stats.get('sections_count', 0),

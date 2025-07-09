@@ -12,6 +12,14 @@ from typing import Dict, List, Tuple, Optional
 from pathlib import Path
 import uuid
 
+# 导入torch检查
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+    print("⚠️ PyTorch不可用，某些高级功能可能受限")
+
 try:
     import chromadb
     from chromadb.config import Settings
@@ -20,21 +28,46 @@ except ImportError:
     CHROMADB_AVAILABLE = False
     print("⚠️ ChromaDB不可用，请安装: pip install chromadb")
 
+# 尝试导入OpenRouter客户端用于图片描述
+try:
+    from src.openrouter_client import OpenRouterClient
+    OPENROUTER_CLIENT_AVAILABLE = True
+except ImportError:
+    OPENROUTER_CLIENT_AVAILABLE = False
+    print("⚠️ OpenRouter客户端不可用，图片VLM描述功能受限")
+
 class PDFEmbeddingService:
     """PDF内容向量化服务 - 统一存储文本和图片"""
     
     def __init__(self, 
-                 chroma_db_path: str = "pdf_embedding_storage",
-                 collection_name: str = "pdf_unified_embeddings"):
+                 model_name: str = "BAAI/bge-m3", 
+                 chroma_db_path: str = "rag_storage",
+                 collection_name: str = "documents",
+                 enable_vlm_description: bool = True):
         """
-        初始化PDF embedding服务
+        初始化PDF嵌入服务
         
         Args:
+            model_name: BGE-M3模型名称
             chroma_db_path: ChromaDB存储路径
-            collection_name: 统一embedding集合名称
+            collection_name: 集合名称，统一为"documents"
+            enable_vlm_description: 是否启用VLM图片描述功能
         """
+        self.model_name = model_name
         self.chroma_db_path = chroma_db_path
         self.collection_name = collection_name
+        self.enable_vlm_description = enable_vlm_description
+        self.device = "cuda" if TORCH_AVAILABLE and torch.cuda.is_available() else "cpu"
+        self.model = None
+        
+        # 初始化VLM客户端
+        self.vlm_client = None
+        if self.enable_vlm_description and OPENROUTER_CLIENT_AVAILABLE:
+            try:
+                self.vlm_client = OpenRouterClient()
+                print("✅ VLM客户端初始化成功，将对图片进行深度描述")
+            except Exception as e:
+                print(f"⚠️ VLM客户端初始化失败: {e}")
         
         # 初始化ChromaDB
         self._init_chroma_db()
@@ -44,28 +77,68 @@ class PDFEmbeddingService:
         if not CHROMADB_AVAILABLE:
             raise RuntimeError("ChromaDB不可用，无法初始化embedding服务")
             
-        try:
-            # 创建存储目录
-            os.makedirs(self.chroma_db_path, exist_ok=True)
-            
-            # 初始化ChromaDB客户端
-            self.chroma_client = chromadb.PersistentClient(
-                path=self.chroma_db_path,
-                settings=Settings(anonymized_telemetry=False)
-            )
-            
-            # 获取或创建统一集合
-            self.collection = self.chroma_client.get_or_create_collection(
-                name=self.collection_name,
-                metadata={"description": "PDF文本和图片内容统一向量化存储"}
-            )
-            
-            print(f"✅ ChromaDB初始化成功: {self.chroma_db_path}")
-            print(f"📊 使用统一集合: {self.collection_name}")
-            
-        except Exception as e:
-            print(f"❌ ChromaDB初始化失败: {e}")
-            raise
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # 创建存储目录
+                os.makedirs(self.chroma_db_path, exist_ok=True)
+                
+                # 初始化ChromaDB客户端 - 添加更多设置来避免冲突
+                self.chroma_client = chromadb.PersistentClient(
+                    path=self.chroma_db_path,
+                    settings=Settings(
+                        anonymized_telemetry=False,
+                        allow_reset=True,
+                        is_persistent=True
+                    )
+                )
+                
+                # 获取或创建统一集合
+                self.collection = self.chroma_client.get_or_create_collection(
+                    name=self.collection_name,
+                    metadata={"description": "PDF文本和图片内容统一向量化存储"}
+                )
+                
+                print(f"✅ ChromaDB初始化成功: {self.chroma_db_path}")
+                print(f"📊 使用统一集合: {self.collection_name}")
+                return
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "already exists" in error_msg and "different settings" in error_msg:
+                    print(f"⚠️ ChromaDB实例冲突，尝试重置... (尝试 {attempt + 1}/{max_retries})")
+                    
+                    # 尝试重置ChromaDB连接
+                    try:
+                        if hasattr(self, 'chroma_client') and self.chroma_client:
+                            self.chroma_client.reset()
+                    except:
+                        pass
+                    
+                    # 等待一下再重试
+                    import time
+                    time.sleep(1)
+                    
+                    if attempt == max_retries - 1:
+                        # 最后一次尝试：删除并重新创建
+                        try:
+                            import shutil
+                            if os.path.exists(self.chroma_db_path):
+                                print(f"🔄 清理ChromaDB目录: {self.chroma_db_path}")
+                                shutil.rmtree(self.chroma_db_path)
+                                os.makedirs(self.chroma_db_path, exist_ok=True)
+                        except Exception as cleanup_error:
+                            print(f"⚠️ 清理失败: {cleanup_error}")
+                else:
+                    print(f"❌ ChromaDB初始化失败: {e}")
+                    if attempt == max_retries - 1:
+                        raise
+                    else:
+                        import time
+                        time.sleep(1)
+        
+        # 如果所有重试都失败了
+        raise RuntimeError("ChromaDB初始化失败，已达到最大重试次数")
     
     def embed_parsed_pdf(self, 
                         parsed_content_path: str, 
@@ -85,6 +158,7 @@ class PDFEmbeddingService:
         stats = {
             "text_embeddings": 0,
             "image_embeddings": 0,
+            "table_embeddings": 0,
             "total_embeddings": 0,
             "errors": []
         }
@@ -128,7 +202,23 @@ class PDFEmbeddingService:
             else:
                 stats["errors"].append(f"图片文件不存在: {images_json_path}")
             
-            # 3. 批量添加到ChromaDB
+            # 3. 处理表格内容
+            tables_json_path = os.path.join(parser_output_dir, "tables.json")
+            if os.path.exists(tables_json_path):
+                table_docs, table_metas, table_ids = self._prepare_table_embeddings(
+                    tables_json_path, source_file, title, parser_output_dir
+                )
+                documents.extend(table_docs)
+                metadatas.extend(table_metas)
+                ids.extend(table_ids)
+                stats["table_embeddings"] = len(table_docs)
+                
+                if table_docs:
+                    print(f"✅ 准备表格embedding: {len(table_docs)}个表格")
+            else:
+                stats["errors"].append(f"表格文件不存在: {tables_json_path}")
+            
+            # 4. 批量添加到ChromaDB
             if documents:
                 self.collection.add(
                     documents=documents,
@@ -168,6 +258,74 @@ class PDFEmbeddingService:
             print(f"⚠️ 获取源文件信息失败: {e}")
             
         return source_file, title
+    
+    def embed_and_store_text(self, text_chunks: List[str], 
+                            source_document: str = "unknown",
+                            document_type: str = "Text",
+                            metadatas: Optional[List[Dict]] = None) -> Dict:
+        """
+        兼容性方法：将文本块嵌入并存储到向量数据库
+        
+        Args:
+            text_chunks: 文本块列表
+            source_document: 源文档名称
+            document_type: 文档类型
+            metadatas: 元数据列表（可选）
+            
+        Returns:
+            Dict: 包含嵌入结果的字典
+        """
+        if not text_chunks:
+            return {"chunks_count": 0, "collection_name": self.collection_name}
+        
+        try:
+            # 准备文档和元数据
+            documents = text_chunks
+            if metadatas:
+                # 如果提供了元数据，使用它们
+                processed_metadatas = metadatas
+            else:
+                # 否则创建默认元数据
+                processed_metadatas = []
+                for i, text in enumerate(text_chunks):
+                    metadata = {
+                        "source_file": source_document,
+                        "document_type": document_type,
+                        "chunk_index": i,
+                        "content_type": "text" if document_type == "Text" else "image",
+                        "embedding_time": datetime.now().isoformat(),
+                        "content_length": len(text)
+                    }
+                    processed_metadatas.append(metadata)
+            
+            # 生成唯一ID
+            ids = []
+            for i, text in enumerate(text_chunks):
+                chunk_id = f"{source_document}_{document_type}_{i}_{hashlib.md5(text.encode()).hexdigest()[:8]}"
+                ids.append(chunk_id)
+            
+            # 添加到ChromaDB
+            self.collection.add(
+                documents=documents,
+                metadatas=processed_metadatas,
+                ids=ids
+            )
+            
+            print(f"✅ 成功嵌入 {len(text_chunks)} 个文本块到 {self.collection_name}")
+            return {
+                "chunks_count": len(text_chunks),
+                "collection_name": self.collection_name,
+                "status": "success"
+            }
+            
+        except Exception as e:
+            print(f"❌ 文本嵌入失败: {e}")
+            return {
+                "chunks_count": 0,
+                "collection_name": self.collection_name,
+                "status": "error",
+                "error": str(e)
+            }
     
     def _fix_filename_encoding(self, filename: str) -> str:
         """修复文件名编码问题"""
@@ -276,7 +434,7 @@ class PDFEmbeddingService:
     
     def _prepare_image_embeddings(self, images_json_path: str, source_file: str,
                                  title: str, parser_output_dir: str) -> Tuple[List[str], List[Dict], List[str]]:
-        """准备图片内容的embedding数据"""
+        """准备图片内容的embedding数据 - 支持VLM深度分析"""
         documents = []
         metadatas = []
         ids = []
@@ -286,16 +444,30 @@ class PDFEmbeddingService:
             with open(images_json_path, 'r', encoding='utf-8') as f:
                 images_data = json.load(f)
             
+            print(f"📸 处理 {len(images_data)} 张图片，VLM描述启用: {self.enable_vlm_description}")
+            
             for image_id, image_info in images_data.items():
-                # 构建图片描述文档（用于文本搜索）
+                # 获取基本信息
                 caption = image_info.get("caption", f"图片 {image_id}")
                 context = image_info.get("context", "")
                 image_path = image_info.get("image_path", "")
                 
-                # 组合图片的文本描述
-                image_description = f"{caption}"
-                if context:
-                    image_description += f"\n上下文: {context}"
+                # 构建完整的图片路径
+                if image_path and not os.path.isabs(image_path):
+                    full_image_path = os.path.join(parser_output_dir, image_path)
+                else:
+                    full_image_path = image_path
+                
+                # 尝试通过VLM生成深度描述
+                image_description = self._generate_image_description(
+                    full_image_path, caption, context, image_id
+                )
+                
+                # 如果生成的描述为空，使用基本信息
+                if not image_description.strip():
+                    image_description = f"{caption}"
+                    if context:
+                        image_description += f"\n上下文: {context}"
                 
                 # 生成唯一ID
                 img_id = self._generate_id(source_file, "image", image_id, image_path)
@@ -314,7 +486,9 @@ class PDFEmbeddingService:
                     "figure_size": image_info.get("figure_size", 0),
                     "figure_aspect": image_info.get("figure_aspect", 1.0),
                     "embedding_time": datetime.now().isoformat(),
-                    "parser_output_path": parser_output_dir
+                    "parser_output_path": parser_output_dir,
+                    "vlm_description_enabled": self.enable_vlm_description,
+                    "has_vlm_description": self.vlm_client is not None
                 }
                 
                 documents.append(image_description)
@@ -325,6 +499,184 @@ class PDFEmbeddingService:
             print(f"❌ 图片embedding准备失败: {e}")
             
         return documents, metadatas, ids
+    
+    def _prepare_table_embeddings(self, tables_json_path: str, source_file: str,
+                                 title: str, parser_output_dir: str) -> Tuple[List[str], List[Dict], List[str]]:
+        """准备表格内容的embedding数据 - 支持VLM深度分析"""
+        documents = []
+        metadatas = []
+        ids = []
+        
+        try:
+            # 读取表格信息
+            with open(tables_json_path, 'r', encoding='utf-8') as f:
+                tables_data = json.load(f)
+            
+            print(f"📊 处理 {len(tables_data)} 个表格，VLM描述启用: {self.enable_vlm_description}")
+            
+            for table_id, table_info in tables_data.items():
+                # 获取基本信息
+                caption = table_info.get("caption", f"表格 {table_id}")
+                table_path = table_info.get("table_path", "")
+                
+                # 构建完整的表格图片路径
+                if table_path and not os.path.isabs(table_path):
+                    full_table_path = os.path.join(parser_output_dir, table_path)
+                else:
+                    full_table_path = table_path
+                
+                # 尝试通过VLM生成表格描述
+                table_description = self._generate_table_description(
+                    full_table_path, caption, table_id
+                )
+                
+                # 如果生成的描述为空，使用基本信息
+                if not table_description.strip():
+                    table_description = f"表格: {caption}"
+                
+                # 生成唯一ID
+                table_id_str = self._generate_id(source_file, "table", table_id, table_path)
+                
+                # 构建元数据
+                table_metadata = {
+                    "source_file": source_file,
+                    "document_title": title,
+                    "content_type": "table",  # 关键字段：区分文本、图片和表格
+                    "table_id": table_id,
+                    "table_path": table_path,
+                    "caption": caption,
+                    "width": table_info.get("width", 0),
+                    "height": table_info.get("height", 0),
+                    "figure_size": table_info.get("figure_size", 0),
+                    "figure_aspect": table_info.get("figure_aspect", 1.0),
+                    "embedding_time": datetime.now().isoformat(),
+                    "parser_output_path": parser_output_dir,
+                    "vlm_description_enabled": self.enable_vlm_description,
+                    "has_vlm_description": self.vlm_client is not None
+                }
+                
+                documents.append(table_description)
+                metadatas.append(table_metadata)
+                ids.append(table_id_str)
+                
+        except Exception as e:
+            print(f"❌ 表格embedding准备失败: {e}")
+            
+        return documents, metadatas, ids
+    
+    def _generate_table_description(self, table_path: str, caption: str, table_id: str) -> str:
+        """
+        生成表格描述 - 使用VLM分析表格内容
+        
+        Args:
+            table_path: 表格图片路径
+            caption: 基本标题
+            table_id: 表格ID
+            
+        Returns:
+            str: 表格描述文本
+        """
+        # 如果VLM客户端可用且表格图片存在，使用VLM生成描述
+        if self.vlm_client and os.path.exists(table_path):
+            try:
+                print(f"📊 对表格 {table_id} 进行VLM深度分析...")
+                
+                # 构建专门针对表格的VLM提示词
+                prompt = """请作为专业的表格分析师，详细分析和描述这个表格的内容。请按以下结构回答：
+
+1. 表格类型：确定这是数据表、对比表、统计表、时间表还是其他类型的表格
+2. 表格结构：描述表格的行数、列数、表头和整体结构
+3. 核心数据：详细列出表格中的关键数据、数值和信息
+4. 文本内容：完整转录表格中的所有文字、数字、标题、单位等
+5. 数据关系：分析表格数据之间的关系、趋势和模式
+6. 关键信息：提炼表格要表达的核心信息和结论
+
+请用中文回答，尽可能详细和准确地转录表格内容。"""
+                
+                # 调用VLM生成描述
+                vlm_description = self.vlm_client.get_image_description_gemini(
+                    table_path, prompt=prompt
+                )
+                
+                # 检查VLM描述是否成功
+                if vlm_description and not vlm_description.startswith("Error:"):
+                    # 组合完整描述
+                    full_description = f"表格标题: {caption}\n\n详细内容: {vlm_description}"
+                    
+                    print(f"✅ 表格VLM描述生成成功: {table_id}")
+                    return full_description
+                else:
+                    print(f"⚠️ 表格VLM描述生成失败: {table_id}, 错误: {vlm_description}")
+                    
+            except Exception as e:
+                print(f"⚠️ 表格VLM描述生成异常: {table_id}, 错误: {e}")
+        
+        # 如果VLM不可用或失败，使用基本信息
+        basic_description = f"表格标题: {caption}"
+        
+        print(f"📝 使用基本描述: {table_id}")
+        return basic_description
+    
+    def _generate_image_description(self, image_path: str, caption: str, context: str, image_id: str) -> str:
+        """
+        生成图片描述 - 优先使用VLM，失败时使用基本信息
+        
+        Args:
+            image_path: 图片路径
+            caption: 基本标题
+            context: 上下文信息
+            image_id: 图片ID
+            
+        Returns:
+            str: 图片描述文本
+        """
+        # 如果VLM客户端可用且图片存在，使用VLM生成描述
+        if self.vlm_client and os.path.exists(image_path):
+            try:
+                print(f"🔍 对图片 {image_id} 进行VLM深度分析...")
+                
+                # 构建针对Gemini 2.5 Flash优化的VLM提示词
+                prompt = """请作为专业的图像分析师，详细分析和描述这张图片的内容。请按以下结构回答：
+
+1. 图像类型：确定这是照片、图表、工程图、技术图纸、流程图还是其他类型
+2. 核心内容：描述图像的主要元素和信息
+3. 技术细节：如果是技术图纸或图表，请详细解释其结构、数据、标注和关键信息
+4. 文本内容：识别并转录图像中的所有可见文字、数字、标签
+5. 空间布局：描述元素的位置关系和整体布局
+6. 颜色和样式：描述主要颜色、线条样式、符号等视觉特征
+
+请用中文回答，尽可能详细和准确。"""
+                
+                if context:
+                    prompt += f"\n\n上下文信息: {context}"
+                
+                # 调用VLM生成描述
+                vlm_description = self.vlm_client.get_image_description_gemini(
+                    image_path, prompt=prompt
+                )
+                
+                # 检查VLM描述是否成功
+                if vlm_description and not vlm_description.startswith("Error:"):
+                    # 组合完整描述
+                    full_description = f"图片标题: {caption}\n\n详细描述: {vlm_description}"
+                    if context:
+                        full_description += f"\n\n上下文: {context}"
+                    
+                    print(f"✅ VLM描述生成成功: {image_id}")
+                    return full_description
+                else:
+                    print(f"⚠️ VLM描述生成失败: {image_id}, 错误: {vlm_description}")
+                    
+            except Exception as e:
+                print(f"⚠️ VLM描述生成异常: {image_id}, 错误: {e}")
+        
+        # 如果VLM不可用或失败，使用基本信息
+        basic_description = f"图片标题: {caption}"
+        if context:
+            basic_description += f"\n上下文: {context}"
+        
+        print(f"📝 使用基本描述: {image_id}")
+        return basic_description
     
     def _generate_id(self, source_file: str, content_type: str, index_or_id: any, content: str) -> str:
         """生成内容的唯一ID"""
@@ -385,6 +737,129 @@ class PDFEmbeddingService:
             print(f"❌ 搜索失败: {e}")
             return []
     
+    def search_similar_content(self, query: str, 
+                              content_type: Optional[str] = None,
+                              top_k: int = 5, 
+                              source_file_filter: Optional[str] = None) -> List[Dict]:
+        """
+        搜索相似内容 - search方法的友好接口
+        
+        Args:
+            query: 搜索查询
+            content_type: 内容类型过滤 ("text", "image", None表示搜索全部)
+            top_k: 返回结果数量
+            source_file_filter: 源文件过滤器
+            
+        Returns:
+            List[Dict]: 搜索结果，每个结果包含内容、元数据和相似度
+        """
+        # 调用原始search方法
+        results = self.search(query, content_type, top_k, source_file_filter)
+        
+        # 转换distance为similarity (distance越小，相似度越高)
+        for result in results:
+            if result.get("distance") is not None:
+                # 将distance转换为similarity (0-1之间，1表示完全相似)
+                result["similarity"] = 1 / (1 + result["distance"])
+            else:
+                result["similarity"] = 0
+                
+            # 添加一些用户友好的字段
+            metadata = result.get("metadata", {})
+            result["document_type"] = metadata.get("content_type", "unknown")
+            result["source_document"] = metadata.get("source_file", "unknown")
+            result["document_title"] = metadata.get("document_title", "unknown")
+            
+        return results
+    
+    def search_text_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> List[Dict]:
+        """
+        只搜索文本内容
+        
+        Args:
+            query: 搜索查询
+            top_k: 返回结果数量
+            source_file_filter: 源文件过滤器
+            
+        Returns:
+            List[Dict]: 搜索结果
+        """
+        return self.search(query, content_type="text", top_k=top_k, source_file_filter=source_file_filter)
+    
+    def search_images_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> List[Dict]:
+        """
+        只搜索图片内容
+        
+        Args:
+            query: 搜索查询
+            top_k: 返回结果数量
+            source_file_filter: 源文件过滤器
+            
+        Returns:
+            List[Dict]: 搜索结果
+        """
+        return self.search(query, content_type="image", top_k=top_k, source_file_filter=source_file_filter)
+    
+    def search_tables_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> List[Dict]:
+        """
+        只搜索表格内容
+        
+        Args:
+            query: 搜索查询
+            top_k: 返回结果数量
+            source_file_filter: 源文件过滤器
+            
+        Returns:
+            List[Dict]: 搜索结果
+        """
+        return self.search(query, content_type="table", top_k=top_k, source_file_filter=source_file_filter)
+    
+    def search_by_filename(self, filename: str, top_k: int = 10) -> List[Dict]:
+        """
+        按文件名搜索所有内容
+        
+        Args:
+            filename: 文件名（支持部分匹配）
+            top_k: 返回结果数量
+            
+        Returns:
+            List[Dict]: 搜索结果
+        """
+        try:
+            # 使用where条件过滤文件名
+            where_condition = {
+                "source_file": {
+                    "$contains": filename
+                }
+            }
+            
+            # 执行搜索（使用空查询获取所有匹配的文件）
+            results = self.collection.query(
+                query_texts=[""],  # 空查询
+                n_results=top_k,
+                where=where_condition
+            )
+            
+            # 格式化结果
+            formatted_results = []
+            if results["documents"] and results["documents"][0]:
+                for i, doc in enumerate(results["documents"][0]):
+                    metadata = results["metadatas"][0][i]
+                    formatted_result = {
+                        "content": doc[:200] + "..." if len(doc) > 200 else doc,
+                        "metadata": metadata,
+                        "distance": results["distances"][0][i] if results["distances"] and results["distances"][0] else 0.0,
+                        "content_type": metadata.get("content_type", "unknown"),
+                        "source_file": metadata.get("source_file", "unknown")
+                    }
+                    formatted_results.append(formatted_result)
+            
+            return formatted_results
+            
+        except Exception as e:
+            print(f"❌ 按文件名搜索失败: {e}")
+            return []
+    
     def get_collection_stats(self) -> Dict:
         """获取集合统计信息"""
         try:
@@ -404,6 +879,7 @@ class PDFEmbeddingService:
                     
                     text_count = 0
                     image_count = 0
+                    table_count = 0
                     
                     for metadata in all_results["metadatas"]:
                         content_type = metadata.get("content_type", "unknown")
@@ -411,17 +887,22 @@ class PDFEmbeddingService:
                             text_count += 1
                         elif content_type == "image":
                             image_count += 1
+                        elif content_type == "table":
+                            table_count += 1
                     
                     stats["text_embeddings"] = text_count
                     stats["image_embeddings"] = image_count
+                    stats["table_embeddings"] = table_count
                     
                 except Exception as e:
                     print(f"⚠️ 获取详细统计失败: {e}")
                     stats["text_embeddings"] = "unknown"
                     stats["image_embeddings"] = "unknown"
+                    stats["table_embeddings"] = "unknown"
             else:
                 stats["text_embeddings"] = 0
                 stats["image_embeddings"] = 0
+                stats["table_embeddings"] = 0
             
             return stats
             

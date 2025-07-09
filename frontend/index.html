@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI竣工文档生成系统 - 智能文档创作平台</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-ai">AI</span>
+                        <span class="logo-title">竣工文档生成系统</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="toggle-panel-btn" id="togglePanelBtn" title="展开/收起工具面板">
+                        <i class="fas fa-cog"></i>
+                        <span>工具面板</span>
+                    </button>
+                    <div class="connection-status" id="connectionStatus">
+                        <div class="status-indicator connecting" id="statusIndicator"></div>
+                        <span id="statusText">连接中...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Collapsible Tools Panel -->
+            <aside class="tools-panel collapsed" id="toolsPanel">
+                <div class="panel-header">
+                    <h3><i class="fas fa-tools"></i> 系统工具</h3>
+                    <button class="refresh-btn" id="refreshTools" title="刷新工具">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+
+                <div class="panel-content">
+                    <div class="servers-section">
+                        <div class="section-header">
+                            <h4><i class="fas fa-server"></i> 服务器</h4>
+                            <div class="section-info">
+                                <span class="server-count" id="serverCount">0</span>
+                                <button class="add-server-btn" id="addServerBtn" title="添加MCP服务器">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="scrollable-content">
+                            <div class="servers-list" id="serversList">
+                                <!-- Server items will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tools-section">
+                        <div class="section-header">
+                            <h4><i class="fas fa-wrench"></i> 可用工具</h4>
+                            <div class="section-info">
+                                <span class="tool-count-badge" id="toolCountBadge">0</span>
+                            </div>
+                        </div>
+                        <div class="scrollable-content">
+                            <div class="tools-list" id="toolsList">
+                                <!-- Tool items will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-footer">
+                    <div class="minio-status" id="minioStatus">
+                        <i class="fas fa-database"></i>
+                        <span id="minioStatusText">MinIO</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Chat Interface -->
+            <main class="chat-container">
+                <div class="chat-header">
+                    <h2><i class="fas fa-comments"></i> 智能对话</h2>
+                    <div class="model-info">
+                        <span>由DeepSeek V3驱动</span>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message system-message">
+                        <div class="message-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div class="message-content">
+                            <p>欢迎使用AI竣工文档生成系统！我可以帮助您智能生成各类专业文档。</p>
+                            <p>您可以尝试询问：<em>"生成一份文物评估报告"</em> 或 <em>"创建施工验收文档"</em></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="input-wrapper">
+                        <textarea id="chatInput" placeholder="请输入您的需求，我将为您生成专业文档..." rows="1"></textarea>
+                        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,.json,.csv,.xlsx" multiple
+                            style="display: none;">
+                        <button class="file-upload-btn" id="fileUploadBtn" title="上传文件">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+                        <button class="send-btn" id="sendBtn" disabled>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="input-info">
+                        <div class="uploaded-files" id="uploadedFiles" style="display: none;">
+                            <span class="files-label">📎 已上传文件:</span>
+                            <div class="files-list" id="filesList"></div>
+                        </div>
+                        <span class="typing-indicator" id="typingIndicator" style="display: none;">
+                            <i class="fas fa-circle"></i>
+                            <i class="fas fa-circle"></i>
+                            <i class="fas fa-circle"></i>
+                            AI正在思考...
+                        </span>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Loading Modal -->
+        <div class="modal" id="loadingModal" style="display: none;">
+            <div class="modal-content">
+                <div class="loading-spinner"></div>
+                <p>正在处理您的请求...</p>
+            </div>
+        </div>
+
+        <!-- Error Modal -->
+        <div class="modal" id="errorModal" style="display: none;">
+            <div class="modal-content error">
+                <div class="modal-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> 错误</h3>
+                    <button class="close-btn" onclick="closeModal('errorModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="errorMessage">发生了一个错误</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Modal -->
+        <div class="modal" id="downloadModal" style="display: none;">
+            <div class="modal-content download">
+                <div class="modal-header">
+                    <h3><i class="fas fa-download"></i> 文档已生成</h3>
+                    <button class="close-btn" onclick="closeModal('downloadModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="download-info" id="downloadInfo">
+                        <!-- Download information will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Server Configuration Modal -->
+        <div class="modal" id="serverConfigModal" style="display: none;">
+            <div class="modal-content server-config">
+                <div class="modal-header">
+                    <h3 id="serverModalTitle"><i class="fas fa-server"></i> 添加MCP服务器</h3>
+                    <button class="close-btn" onclick="closeModal('serverConfigModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="serverConfigForm">
+                        <div class="form-group">
+                            <label for="serverName">服务器名称 *</label>
+                            <input type="text" id="serverName" placeholder="例如：my-mcp-server" required>
+                            <small>MCP服务器的唯一标识符</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="serverType">服务器类型 *</label>
+                            <select id="serverType" required>
+                                <option value="fastapi-mcp">FastAPI-MCP服务器</option>
+                                <option value="standard">标准MCP服务器</option>
+                            </select>
+                            <small>选择MCP服务器的实现类型</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="serverUrl">服务器URL *</label>
+                            <input type="url" id="serverUrl"
+                                placeholder="http://127.0.0.1:4242 或 https://abc123.cpolar.top" required>
+                            <small>MCP服务器运行的完整URL地址</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="serverEnabled" checked>
+                                <span class="checkmark"></span>
+                                立即启用服务器
+                            </label>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeModal('serverConfigModal')">
+                                取消
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="saveServerBtn">
+                                <i class="fas fa-save"></i> 添加服务器
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

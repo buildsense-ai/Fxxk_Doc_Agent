@@ -20,6 +20,8 @@ except ImportError as e:
 
 try:
     from src.base_tool import Tool
+    from src.pdf_embedding_service import PDFEmbeddingService
+    PDF_EMBEDDING_SERVICE_AVAILABLE = True
 except ImportError:
     # 如果无法导入Tool，创建一个基础类
     class Tool:
@@ -29,6 +31,8 @@ except ImportError:
         
         def execute(self, action: str, **kwargs) -> str:
             return "基础工具执行"
+    
+    PDF_EMBEDDING_SERVICE_AVAILABLE = False
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -94,14 +98,61 @@ class ChromaVectorStore:
     
     def __init__(self, storage_dir: str):
         self.storage_dir = storage_dir
-        self.client = chromadb.PersistentClient(
-            path=storage_dir,
-            settings=Settings(allow_reset=True, anonymized_telemetry=False)
-        )
-        self.collection = self.client.get_or_create_collection(
-            name="documents",
-            metadata={"hnsw:space": "cosine"}
-        )
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                self.client = chromadb.PersistentClient(
+                    path=storage_dir,
+                    settings=Settings(
+                        allow_reset=True, 
+                        anonymized_telemetry=False,
+                        is_persistent=True
+                    )
+                )
+                self.collection = self.client.get_or_create_collection(
+                    name="documents",
+                    metadata={"hnsw:space": "cosine"}
+                )
+                logger.info(f"✅ ChromaVectorStore初始化成功: {storage_dir}")
+                return
+                
+            except Exception as e:
+                error_msg = str(e)
+                if "already exists" in error_msg and "different settings" in error_msg:
+                    logger.warning(f"⚠️ ChromaDB实例冲突，尝试重置... (尝试 {attempt + 1}/{max_retries})")
+                    
+                    # 尝试重置ChromaDB连接
+                    try:
+                        if hasattr(self, 'client') and self.client:
+                            self.client.reset()
+                    except:
+                        pass
+                    
+                    # 等待一下再重试
+                    import time
+                    time.sleep(1)
+                    
+                    if attempt == max_retries - 1:
+                        # 最后一次尝试：删除并重新创建
+                        try:
+                            import shutil
+                            if os.path.exists(storage_dir):
+                                logger.info(f"🔄 清理ChromaDB目录: {storage_dir}")
+                                shutil.rmtree(storage_dir)
+                                os.makedirs(storage_dir, exist_ok=True)
+                        except Exception as cleanup_error:
+                            logger.warning(f"⚠️ 清理失败: {cleanup_error}")
+                else:
+                    logger.error(f"❌ ChromaVectorStore初始化失败: {e}")
+                    if attempt == max_retries - 1:
+                        raise
+                    else:
+                        import time
+                        time.sleep(1)
+        
+        # 如果所有重试都失败了
+        raise RuntimeError("ChromaVectorStore初始化失败，已达到最大重试次数")
     
     def add_document(self, doc_id: str, content: str, metadata: Dict[str, Any]):
         """添加文档到向量库"""
@@ -131,12 +182,17 @@ class ChromaVectorStore:
         
         return len(chunks)
     
-    def search_documents(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
-        """搜索相关文档"""
-        results = self.collection.query(
-            query_texts=[query],
-            n_results=n_results
-        )
+    def search_documents(self, query: str, n_results: int = 5, where_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """搜索相关文档，支持元数据过滤"""
+        query_params = {
+            "query_texts": [query],
+            "n_results": n_results
+        }
+        if where_filter:
+            query_params["where"] = where_filter
+            logger.info(f"🔍 使用元数据过滤器进行搜索: {where_filter}")
+            
+        results = self.collection.query(**query_params)
         
         formatted_results = []
         if results['documents'] and len(results['documents']) > 0:
@@ -311,10 +367,48 @@ class RAGTool(Tool):
     """重新设计的RAG工具 - 核心三功能"""
     
     def __init__(self, storage_dir: str = "rag_storage", deepseek_client=None):
-        super().__init__(
-            name="rag_tool",
-            description="文档处理和智能检索工具。支持文档embedding处理、基于模板字段的智能搜索和内容填充。"
-        )
+        super().__init__()
+        self.name = "rag_tool"
+        self.description = """智能文档检索工具 - 支持文本、图片、表格的精确搜索
+
+🔍 **支持的操作 (action):**
+
+1. **search** - 通用搜索（返回混合内容）
+   参数: {"action": "search", "query": "关键词", "top_k": 5}
+
+2. **search_images** - 专门搜索图片 🖼️
+   参数: {"action": "search_images", "query": "关键词", "top_k": 5}
+   示例: {"action": "search_images", "query": "医灵古庙", "top_k": 8}
+
+3. **search_tables** - 专门搜索表格 📊
+   参数: {"action": "search_tables", "query": "关键词", "top_k": 5}
+   示例: {"action": "search_tables", "query": "影响评估", "top_k": 5}
+
+4. **count_images** - 统计图片数量 📈
+   参数: {"action": "count_images", "query": "关键词"}
+   示例: {"action": "count_images", "query": "医灵古庙"}
+
+5. **count_tables** - 统计表格数量 📈
+   参数: {"action": "count_tables", "query": "关键词"}
+   示例: {"action": "count_tables", "query": "评估标准"}
+
+6. **list** - 列出所有文档
+   参数: {"action": "list"}
+
+7. **process_parsed_folder** - 处理解析文件夹
+   参数: {"action": "process_parsed_folder", "folder_path": "路径"}
+
+⚠️ **重要提示:**
+- 搜索图片请使用 search_images，不要使用 search + search_type
+- 统计数量请使用 count_images/count_tables，不要使用 limit 参数
+- top_k 参数控制返回结果数量（默认5）
+- 所有操作都需要明确指定 action 参数
+
+💡 **使用场景:**
+- 问"有多少张图片？" → 使用 count_images
+- 问"检索N张图片" → 使用 search_images + top_k
+- 问"搜索表格数据" → 使用 search_tables
+"""
         
         self.storage_dir = storage_dir
         os.makedirs(storage_dir, exist_ok=True)
@@ -323,6 +417,20 @@ class RAGTool(Tool):
         self.extractor = DocumentExtractor()
         self.vector_store = ChromaVectorStore(storage_dir)
         self.field_processor = TemplateFieldProcessor(deepseek_client)
+        
+        # 初始化改进的PDF embedding服务
+        self.pdf_embedding_service = None
+        if PDF_EMBEDDING_SERVICE_AVAILABLE:
+            try:
+                self.pdf_embedding_service = PDFEmbeddingService(
+                    chroma_db_path=storage_dir,
+                    collection_name="documents"
+                )
+                logger.info("✅ PDF Embedding Service integrated successfully")
+            except Exception as e:
+                logger.warning(f"⚠️ PDF Embedding Service initialization failed: {e}")
+        else:
+            logger.warning("⚠️ PDF Embedding Service not available")
     
     def execute(self, action: str, **kwargs) -> str:
         """执行RAG操作"""
@@ -331,6 +439,14 @@ class RAGTool(Tool):
                 return self._upload_document(**kwargs)
             elif action == "search":
                 return self._search_documents(**kwargs)
+            elif action == "search_images":
+                return self._search_images(**kwargs)
+            elif action == "search_tables":
+                return self._search_tables(**kwargs)
+            elif action == "count_images":
+                return self._count_images(**kwargs)
+            elif action == "count_tables":
+                return self._count_tables(**kwargs)
             elif action == "fill_fields":
                 return self._fill_template_fields(**kwargs)
             elif action == "list":
@@ -344,9 +460,43 @@ class RAGTool(Tool):
                     return "❌ 请提供解析文件夹路径 (folder_path参数)"
                 return self._process_parsed_folder(folder_path, project_name)
             else:
-                return f"❌ 不支持的操作: {action}"
+                return f"""❌ 不支持的操作: {action}
+
+📋 **支持的操作列表:**
+• search - 通用搜索
+• search_images - 搜索图片
+• search_tables - 搜索表格  
+• count_images - 统计图片数量
+• count_tables - 统计表格数量
+• list - 列出文档
+• process_parsed_folder - 处理解析文件夹
+
+💡 **使用示例:**
+• 搜索图片: {{"action": "search_images", "query": "医灵古庙", "top_k": 8}}
+• 统计图片: {{"action": "count_images", "query": "医灵古庙"}}
+"""
         
         except Exception as e:
+            error_msg = str(e)
+            
+            # 检查是否是参数错误
+            if "unexpected keyword argument" in error_msg:
+                if "search_type" in error_msg:
+                    return """❌ 参数错误: search操作不支持search_type参数
+
+✅ **正确做法:**
+• 搜索图片: {"action": "search_images", "query": "关键词"}
+• 搜索表格: {"action": "search_tables", "query": "关键词"}
+• 统计图片: {"action": "count_images", "query": "关键词"}
+"""
+                elif "limit" in error_msg:
+                    return """❌ 参数错误: 不支持limit参数
+
+✅ **正确做法:**
+• 使用top_k参数: {"action": "search_images", "query": "关键词", "top_k": 8}
+• 或使用默认值: {"action": "search_images", "query": "关键词"}
+"""
+            
             logger.error(f"RAG操作失败: {e}")
             return f"❌ 操作失败: {str(e)}"
     
@@ -391,30 +541,222 @@ class RAGTool(Tool):
         except Exception as e:
             return f"❌ 文档处理失败: {str(e)}"
     
-    def _search_documents(self, query: str, top_k: int = 5) -> str:
-        """搜索相关文档"""
+    def _search_documents(self, query: str, top_k: int = 5, metadata_filter: Optional[Dict[str, Any]] = None) -> str:
+        """
+        根据查询文本和可选的元数据过滤器搜索文档
+        
+        Args:
+            query (str): 搜索的关键词或问题。
+            top_k (int): 返回最相关的结果数量，默认为5。
+            metadata_filter (dict, optional): 用于精确过滤的元数据。
+                *   示例1 (只搜图片): `{"document_type": "Image"}`
+                *   示例2 (只搜文本): `{"document_type": "Text"}`
+                *   示例3 (只搜特定文件): `{"source_document": "your_file.pdf"}`
+                *   示例4 (复合查询：只搜特定文件中的图片): `{"$and": [{"document_type": "Image"}, {"source_document": "your_file.pdf"}]}`
+        
+        Returns:
+            str: 包含搜索结果的JSON字符串
+        """
+        logger.info(f"执行文档搜索: query='{query}', top_k={top_k}, filter={metadata_filter}")
         try:
-            logger.info(f"🔍 搜索查询: {query}")
+            results = self.vector_store.search_documents(
+                query=query, 
+                n_results=top_k,
+                where_filter=metadata_filter
+            )
             
-            results = self.vector_store.search_documents(query, n_results=top_k)
+            # 简化输出
+            simplified_results = []
+            for res in results:
+                simplified_results.append({
+                    "content": res.get("content"),
+                    "metadata": res.get("metadata"),
+                    "distance": res.get("distance")
+                })
+
+            return json.dumps({
+                "status": "success", 
+                "results": simplified_results
+            }, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"文档搜索失败: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
+    
+    def _search_images(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> str:
+        """
+        搜索图片内容
+        
+        Args:
+            query: 搜索关键词
+            top_k: 返回结果数量
+            source_file_filter: 源文件过滤器
             
-            if not results:
-                return f"🔍 搜索查询: {query}\n\n❌ 未找到相关内容"
+        Returns:
+            包含搜索结果的JSON字符串
+        """
+        if not self.pdf_embedding_service:
+            return json.dumps({
+                "status": "error", 
+                "message": "PDF Embedding Service not available"
+            })
+        
+        try:
+            results = self.pdf_embedding_service.search_images_only(
+                query=query, 
+                top_k=top_k, 
+                source_file_filter=source_file_filter
+            )
             
-            result = f"🔍 搜索查询: {query}\n\n"
-            result += f"📋 找到 {len(results)} 条相关内容：\n\n"
+            simplified_results = []
+            for res in results:
+                simplified_results.append({
+                    "content": res.get("content", ""),
+                    "metadata": res.get("metadata", {}),
+                    "content_type": res.get("content_type", "image"),
+                    "distance": res.get("distance", 0.0)
+                })
             
-            for i, doc in enumerate(results, 1):
-                result += f"📄 结果 {i}:\n"
-                result += f"   📝 内容: {doc['content'][:200]}{'...' if len(doc['content']) > 200 else ''}\n"
-                result += f"   📁 来源: {doc['metadata'].get('filename', '未知')}\n"
-                result += f"   🎯 相似度: {1 - doc['distance']:.3f}\n\n"
-            
-            return result
+            return json.dumps({
+                "status": "success", 
+                "results": simplified_results,
+                "total_count": len(simplified_results)
+            }, ensure_ascii=False)
             
         except Exception as e:
-            logger.error(f"搜索失败: {e}")
-            return f"❌ 搜索失败: {str(e)}"
+            logger.error(f"图片搜索失败: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
+    
+    def _search_tables(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> str:
+        """
+        搜索表格内容
+        
+        Args:
+            query: 搜索关键词
+            top_k: 返回结果数量
+            source_file_filter: 源文件过滤器
+            
+        Returns:
+            包含搜索结果的JSON字符串
+        """
+        if not self.pdf_embedding_service:
+            return json.dumps({
+                "status": "error", 
+                "message": "PDF Embedding Service not available"
+            })
+        
+        try:
+            results = self.pdf_embedding_service.search_tables_only(
+                query=query, 
+                top_k=top_k, 
+                source_file_filter=source_file_filter
+            )
+            
+            simplified_results = []
+            for res in results:
+                simplified_results.append({
+                    "content": res.get("content", ""),
+                    "metadata": res.get("metadata", {}),
+                    "content_type": res.get("content_type", "table"),
+                    "distance": res.get("distance", 0.0)
+                })
+            
+            return json.dumps({
+                "status": "success", 
+                "results": simplified_results,
+                "total_count": len(simplified_results)
+            }, ensure_ascii=False)
+            
+        except Exception as e:
+            logger.error(f"表格搜索失败: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
+    
+    def _count_images(self, query: str = "", source_file_filter: Optional[str] = None) -> str:
+        """
+        统计图片数量
+        
+        Args:
+            query: 搜索关键词（可选）
+            source_file_filter: 源文件过滤器
+            
+        Returns:
+            包含统计结果的JSON字符串
+        """
+        if not self.pdf_embedding_service:
+            return json.dumps({
+                "status": "error", 
+                "message": "PDF Embedding Service not available"
+            })
+        
+        try:
+            # 如果有查询词，进行搜索
+            if query:
+                results = self.pdf_embedding_service.search_images_only(
+                    query=query, 
+                    top_k=100,  # 获取更多结果来统计
+                    source_file_filter=source_file_filter
+                )
+                count = len(results)
+                message = f"找到 {count} 张包含'{query}'的图片"
+            else:
+                # 获取所有图片统计
+                stats = self.pdf_embedding_service.get_collection_stats()
+                count = stats.get("image_embeddings", 0)
+                message = f"系统中共有 {count} 张图片"
+            
+            return json.dumps({
+                "status": "success", 
+                "count": count,
+                "message": message,
+                "content_type": "image"
+            }, ensure_ascii=False)
+            
+        except Exception as e:
+            logger.error(f"图片统计失败: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
+    
+    def _count_tables(self, query: str = "", source_file_filter: Optional[str] = None) -> str:
+        """
+        统计表格数量
+        
+        Args:
+            query: 搜索关键词（可选）
+            source_file_filter: 源文件过滤器
+            
+        Returns:
+            包含统计结果的JSON字符串
+        """
+        if not self.pdf_embedding_service:
+            return json.dumps({
+                "status": "error", 
+                "message": "PDF Embedding Service not available"
+            })
+        
+        try:
+            # 如果有查询词，进行搜索
+            if query:
+                results = self.pdf_embedding_service.search_tables_only(
+                    query=query, 
+                    top_k=100,  # 获取更多结果来统计
+                    source_file_filter=source_file_filter
+                )
+                count = len(results)
+                message = f"找到 {count} 个包含'{query}'的表格"
+            else:
+                # 获取所有表格统计
+                stats = self.pdf_embedding_service.get_collection_stats()
+                count = stats.get("table_embeddings", 0)
+                message = f"系统中共有 {count} 个表格"
+            
+            return json.dumps({
+                "status": "success", 
+                "count": count,
+                "message": message,
+                "content_type": "table"
+            }, ensure_ascii=False)
+            
+        except Exception as e:
+            logger.error(f"表格统计失败: {e}")
+            return json.dumps({"status": "error", "message": str(e)})
     
     def _fill_template_fields(self, template_fields_json: Dict[str, str]) -> str:
         """基于模板字段JSON进行智能填充 - 核心功能"""
