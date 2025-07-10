@@ -92,7 +92,7 @@ class StreamingReActAgent:
 
 ```
 Thought: [你的推理过程]
-Action: [工具名称，只能是以下之一: rag_tool, image_rag_tool, pdf_parser, pdf_embedding]
+Action: [工具名称，只能是以下之一: rag_tool, pdf_parser, advanced_long_document_generator]
 Action Input: [{{"action": "操作类型", "其他参数": "参数值"}}]
 ```
 
@@ -106,7 +106,7 @@ Final Answer: [你的回答]
 🎯 **工具调用格式说明:**
 - **pdf_parser**: {{"action": "parse", "pdf_path": "文件路径"}}
 - **rag_tool**: {{"action": "search", "query": "搜索内容", "top_k": 5}}
-- **image_rag_tool**: {{"action": "search", "query": "搜索内容", "top_k": 5}}
+- **advanced_long_document_generator**: {{"action": "generate", "request": "生成请求", "project_name": "项目名称"}}
 - **pdf_embedding**: {{"action": "add_document", "file_path": "文件路径"}}
 
 🚨 **关键规则:**
@@ -144,7 +144,7 @@ Final Answer: [你的回答]
             action = action.strip()
             
             # 验证action是否为有效工具名称
-            valid_tools = ['rag_tool', 'image_rag_tool', 'pdf_parser', 'pdf_embedding']
+            valid_tools = ['rag_tool', 'pdf_parser', 'advanced_long_document_generator']
             if action not in valid_tools:
                 # 尝试从action中提取有效工具名称
                 for tool in valid_tools:
@@ -366,17 +366,17 @@ async def list_tools():
             }
             mcp_tool["inputSchema"]["required"] = ["file_path"]
             
-        elif tool_name == "image_rag_tool":
+        elif tool_name == "advanced_long_document_generator":
             mcp_tool["inputSchema"]["properties"] = {
                 "action": {
                     "type": "string",
-                    "enum": ["upload", "search", "list"],
+                    "enum": ["generate", "status", "list"],
                     "description": "操作类型"
                 },
-                "image_path": {"type": "string", "description": "图片文件路径"},
-                "description": {"type": "string", "description": "图片描述"},
-                "query": {"type": "string", "description": "搜索查询"},
-                "top_k": {"type": "integer", "default": 5, "description": "返回结果数量"}
+                "request": {"type": "string", "description": "文档生成请求"},
+                "project_name": {"type": "string", "description": "项目名称"},
+                "source_data_path": {"type": "string", "description": "源数据路径"},
+                "task_id": {"type": "string", "description": "任务ID"}
             }
             mcp_tool["inputSchema"]["required"] = ["action"]
             

@@ -47,16 +47,16 @@ class ToolRegistry:
         
         # 4. PDF Embedding功能已整合到RAG工具中
         
-        # 5. 文档生成工具 - AI驱动的智能文档创建
-        if DocumentGeneratorTool:
+        # 5. 高级长文档生成工具 - AI驱动的专业长篇文档智能生成器
+        if AdvancedLongDocumentGeneratorTool:
             try:
-                document_generator_tool = DocumentGeneratorTool()
-                core_tools.append(document_generator_tool)
-                print("✅ 文档生成工具加载成功")
+                advanced_long_document_generator_tool = AdvancedLongDocumentGeneratorTool()
+                core_tools.append(advanced_long_document_generator_tool)
+                print("✅ 高级长文档生成工具加载成功")
             except Exception as e:
-                print(f"❌ 文档生成工具加载失败: {e}")
+                print(f"❌ 高级长文档生成工具加载失败: {e}")
         else:
-            print("❌ 文档生成工具类不可用")
+            print("❌ 高级长文档生成工具类不可用")
         
         # 注册所有工具
         for tool in core_tools:
@@ -94,7 +94,7 @@ class ToolRegistry:
         tool_descriptions = {
             "rag_tool": "📚 统一RAG工具 - 文档/图片向量化存储和智能检索",
             "pdf_parser": "📄 PDF智能解析 - 提取文本、图片、表格并结构化重组",
-            "document_generator": "📝 文档生成工具 - AI驱动的智能文档创建",
+            "advanced_long_document_generator": "🚀 高级长文档生成工具 - AI驱动的专业长篇文档智能生成器",
         }
         
         for tool_name, description in tool_descriptions.items():
@@ -146,13 +146,13 @@ SYSTEM_FUNCTIONS_GUIDE = """
   * 图片上传 → AI描述生成 → 向量化存储 → 文本查询检索相关图片
 - 适用场景: 统一知识库管理、多模态内容检索、专业搜索
 
-**工具3: 📝 文档生成工具**
-工具名: document_generator
-- 参数: action="generate_long_document/generate_short_document/check_status", title="标题", requirements="要求"
-- 功能: AI驱动的智能文档创建、知识检索整合、多格式输出
+**工具3: 🚀 高级长文档生成工具**
+工具名: advanced_long_document_generator
+- 参数: action="generate_document/check_status/list_tasks/get_task_result/delete_task", chat_history="对话历史", request="生成要求", task_id="任务ID"
+- 功能: AI驱动的专业长篇文档智能生成器、状态机驱动的多阶段生成流程、向量数据库知识检索整合
 - 处理逻辑:
-  * 需求分析 → 大纲规划 → 知识检索 → 内容生成 → 格式转换 → 云端存储
-- 适用场景: 报告生成、技术文档创建、知识整合
+  * 创作指令分析 → 初始大纲生成 → 多轮大纲精炼 → 分章节内容生成 → 文档整合 → 格式转换 → 云端上传
+- 适用场景: 专业报告生成、技术文档创建、研究报告撰写、项目方案制定
 
 🔄 **工具间协作流程:**
 PDF解析 → 统一RAG(向量化存储) → 文档生成(知识检索+AI创作)
@@ -179,12 +179,12 @@ except ImportError:
 # - pdf_embedding_tool: PDF embedding功能已整合到RAG工具中
 
 try:
-    from document_generator.document_generator_tool import DocumentGeneratorTool
+    from advanced_long_document_generator_tool import AdvancedLongDocumentGeneratorTool
 except ImportError:
     try:
-        from .document_generator.document_generator_tool import DocumentGeneratorTool
+        from .advanced_long_document_generator_tool import AdvancedLongDocumentGeneratorTool
     except ImportError:
-        DocumentGeneratorTool = None
+        AdvancedLongDocumentGeneratorTool = None
 
 def register_tools(agent):
     """注册所有工具到ReAct Agent"""
@@ -294,46 +294,47 @@ def register_tools(agent):
         # - pdf_embedding: PDF embedding功能已整合到统一RAG工具中
         
         {
-            "name": "document_generator",
-            "description": """📝 文档生成工具 - AI驱动的智能文档创建系统
+            "name": "advanced_long_document_generator",
+            "description": """🚀 高级长文档生成工具 - AI驱动的专业长篇文档智能生成器
 
 核心功能：
-- 📝 智能文档生成：基于AI的长文档和短文档生成
-- 🗂️ 大纲规划：自动规划文档结构和章节
-- 🔍 知识检索：集成向量数据库进行知识检索
-- 🎨 多格式输出：支持Markdown和DOCX格式输出
-- ☁️ 云端存储：自动上传到MinIO云存储
-- 📊 任务管理：支持任务状态查询和结果获取
+- 🧠 智能大纲生成与多轮精炼：AI自动规划文档结构，多轮迭代优化
+- 🔍 向量数据库知识检索整合：实时检索相关知识丰富内容
+- 📝 多阶段内容生成流程：分章节逐步生成，确保逻辑连贯
+- 🎯 状态机驱动的稳定执行：完整的流程控制，支持断点续传
+- 📊 多格式输出 (JSON/DOCX)：同时输出JSON状态和DOCX文档
+- ☁️ 云存储自动上传：自动上传到MinIO云存储并生成访问链接
+- 🔧 完整的错误处理和状态管理：可靠的任务管理和错误恢复
 
 工作流程：
-1. 需求分析 → 规划大纲 → 知识检索 → 内容生成
-2. 自我审查 → 内容优化 → 格式转换 → 云端存储
+1. 创作指令分析 → 初始大纲生成 → 多轮大纲精炼
+2. 分章节内容生成 → 文档整合 → 格式转换 → 云端上传
 
-适用场景：报告生成、技术文档创建、知识整合、内容创作""",
+适用场景：专业报告生成、技术文档创建、研究报告撰写、项目方案制定""",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["generate_long_document", "generate_short_document", "check_status", "list_tasks", "get_result"],
-                        "description": "操作类型：generate_long_document(生成长文档), generate_short_document(生成短文档), check_status(查询状态), list_tasks(列出任务), get_result(获取结果)"
+                        "enum": ["generate_document", "check_status", "list_tasks", "get_task_result", "delete_task"],
+                        "description": "操作类型：generate_document(生成文档), check_status(查询状态), list_tasks(列出任务), get_task_result(获取结果), delete_task(删除任务)"
                     },
-                    "title": {
+                    "chat_history": {
                         "type": "string",
-                        "description": "文档标题（生成操作必需）"
+                        "description": "对话历史上下文（生成操作时提供）"
                     },
-                    "requirements": {
+                    "request": {
                         "type": "string",
-                        "description": "文档要求和描述（生成操作必需）"
+                        "description": "生成要求描述（生成操作必需）"
                     },
                     "task_id": {
                         "type": "string",
-                        "description": "任务ID（状态查询和获取结果时需要）"
+                        "description": "任务ID（状态查询、获取结果、删除任务时需要）"
                     }
                 },
                 "required": ["action"]
             },
-            "function": lambda **kwargs: DocumentGeneratorTool().execute(**kwargs)
+            "function": lambda **kwargs: AdvancedLongDocumentGeneratorTool().execute(**kwargs)
         }
     ]
     
@@ -348,4 +349,4 @@ def register_tools(agent):
     print(f"✅ 已注册{len(tools)}个核心工具：")
     print("   📚 rag_tool - 统一RAG工具（文档/图片向量化和检索）")
     print("   📄 pdf_parser - PDF智能解析工具")
-    print("   📝 document_generator - 文档生成工具（AI驱动创作）") 
+    print("   🚀 advanced_long_document_generator - 高级长文档生成工具（AI驱动专业创作）") 

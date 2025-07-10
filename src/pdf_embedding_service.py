@@ -353,7 +353,8 @@ class PDFEmbeddingService:
     def embed_and_store_text(self, text_chunks: List[str], 
                             source_document: str = "unknown",
                             document_type: str = "Text",
-                            metadatas: Optional[List[Dict]] = None) -> Dict:
+                            metadatas: Optional[List[Dict]] = None,
+                            project_name: Optional[str] = None) -> Dict:
         """
         兼容性方法：将文本块嵌入并存储到向量数据库
         
@@ -370,11 +371,20 @@ class PDFEmbeddingService:
             return {"chunks_count": 0, "collection_name": self.collection_name}
         
         try:
+            # 提取项目名称（如果没有提供）
+            if project_name is None:
+                project_name = self._extract_project_name(source_document)
+            
             # 准备文档和元数据
             documents = text_chunks
             if metadatas:
-                # 如果提供了元数据，使用它们
-                processed_metadatas = metadatas
+                # 如果提供了元数据，使用它们，但确保包含project_name
+                processed_metadatas = []
+                for metadata in metadatas:
+                    enhanced_metadata = metadata.copy()
+                    if "project_name" not in enhanced_metadata:
+                        enhanced_metadata["project_name"] = project_name
+                    processed_metadatas.append(enhanced_metadata)
             else:
                 # 否则创建默认元数据
                 processed_metadatas = []
@@ -382,6 +392,7 @@ class PDFEmbeddingService:
                     metadata = {
                         "source_file": source_document,
                         "document_type": document_type,
+                        "project_name": project_name,  # 🆕 项目隔离字段
                         "chunk_index": i,
                         "content_type": "text" if document_type == "Text" else "image",
                         "embedding_time": datetime.now().isoformat(),
@@ -417,6 +428,62 @@ class PDFEmbeddingService:
                 "status": "error",
                 "error": str(e)
             }
+    
+    def _extract_project_name(self, source_file: str) -> str:
+        """
+        从源文件名中提取项目名称
+        
+        Args:
+            source_file: 源文件路径或名称
+            
+        Returns:
+            str: 提取的项目名称
+        """
+        if not source_file or source_file == "unknown":
+            return "default"
+            
+        # 获取文件名（去掉路径）
+        filename = os.path.basename(source_file)
+        
+        # 去掉文件扩展名
+        name_without_ext = os.path.splitext(filename)[0]
+        
+        # 常见的项目名称提取模式
+        project_patterns = [
+            # 1. 直接包含项目关键词的文件名
+            r'([^_\-\s]+(?:宗祠|寺庙|古建|文物|保护|修缮|设计|方案))',
+            r'([^_\-\s]+(?:村|镇|县|市|区))',
+            
+            # 2. 以特定分隔符分割的第一部分
+            r'^([^_\-\s]+)',
+            
+            # 3. 中文项目名称模式
+            r'([\u4e00-\u9fff]{2,8}(?:宗祠|寺庙|古建|文物))',
+            
+            # 4. 如果包含"刘氏宗祠"等具体名称
+            r'(刘氏宗祠|欧村刘氏宗祠)',
+        ]
+        
+        import re
+        
+        # 按优先级尝试不同的提取模式
+        for pattern in project_patterns:
+            match = re.search(pattern, name_without_ext)
+            if match:
+                project_name = match.group(1).strip()
+                # 清理项目名称
+                project_name = re.sub(r'[^\u4e00-\u9fff\w]', '', project_name)
+                if len(project_name) >= 2:  # 至少2个字符
+                    return project_name
+        
+        # 如果没有匹配到模式，使用文件名的前几个字符
+        clean_name = re.sub(r'[^\u4e00-\u9fff\w]', '', name_without_ext)
+        if len(clean_name) >= 2:
+            # 取前4-8个字符作为项目名
+            return clean_name[:min(8, len(clean_name))]
+        
+        # 最后回退方案
+        return "default"
     
     def _fix_filename_encoding(self, filename: str) -> str:
         """修复文件名编码问题"""
@@ -487,6 +554,10 @@ class PDFEmbeddingService:
         ids = []
         
         try:
+            # 提取项目名称
+            project_name = self._extract_project_name(source_file)
+            print(f"📋 文本内容项目名称: {project_name}")
+            
             # 读取解析内容
             with open(parsed_content_path, 'r', encoding='utf-8') as f:
                 content_data = json.load(f)
@@ -502,11 +573,12 @@ class PDFEmbeddingService:
                 # 生成唯一ID
                 section_id = self._generate_id(source_file, "text", i, content)
                 
-                # 构建元数据
+                # 构建元数据 - 添加项目名称
                 section_metadata = {
                     "source_file": source_file,
                     "document_title": title,
                     "content_type": "text",  # 关键字段：区分文本和图片
+                    "project_name": project_name,  # 🆕 项目隔离字段
                     "section_index": i,
                     "source_page": section.get("source_page", i),
                     "content_length": len(content),
@@ -531,6 +603,10 @@ class PDFEmbeddingService:
         ids = []
         
         try:
+            # 提取项目名称
+            project_name = self._extract_project_name(source_file)
+            print(f"📸 图片内容项目名称: {project_name}")
+            
             # 读取图片信息
             with open(images_json_path, 'r', encoding='utf-8') as f:
                 images_data = json.load(f)
@@ -540,7 +616,7 @@ class PDFEmbeddingService:
             for image_id, image_info in images_data.items():
                 # 获取基本信息
                 caption = image_info.get("caption", f"图片 {image_id}")
-                context = image_info.get("context", "")
+                # [已移除] context = image_info.get("context", "") - 不再使用context字段
                 image_path = image_info.get("image_path", "")
                 
                 # 构建完整的图片路径
@@ -551,14 +627,13 @@ class PDFEmbeddingService:
                 
                 # 尝试通过VLM生成深度描述
                 image_description = self._generate_image_description(
-                    full_image_path, caption, context, image_id
+                    full_image_path, caption, image_id
                 )
                 
                 # 如果生成的描述为空，使用基本信息
                 if not image_description.strip():
                     image_description = f"{caption}"
-                    if context:
-                        image_description += f"\n上下文: {context}"
+                    # [已移除] 不再添加context信息
                 
                 # 🆕 上传图片到MinIO
                 minio_url = None
@@ -572,16 +647,17 @@ class PDFEmbeddingService:
                 # 生成唯一ID
                 img_id = self._generate_id(source_file, "image", image_id, image_path)
                 
-                # 构建元数据
+                # 构建元数据 - 添加项目名称
                 image_metadata = {
                     "source_file": source_file,
                     "document_title": title,
                     "content_type": "image",  # 关键字段：区分文本和图片
+                    "project_name": project_name,  # 🆕 项目隔离字段
                     "image_id": image_id,
                     "image_path": image_path,  # 保留原始本地路径
                     "minio_url": minio_url,    # 🆕 添加MinIO URL
                     "caption": caption,
-                    "context": context,
+                    # [已移除] "context": context, - 不再存储context字段
                     "vlm_description": image_description,  # 🆕 保存完整的VLM描述到元数据
                     "original_caption": caption,  # 🆕 保存原始标题
                     "width": image_info.get("width", 0),
@@ -614,6 +690,10 @@ class PDFEmbeddingService:
         ids = []
         
         try:
+            # 提取项目名称
+            project_name = self._extract_project_name(source_file)
+            print(f"📊 表格内容项目名称: {project_name}")
+            
             # 读取表格信息
             with open(tables_json_path, 'r', encoding='utf-8') as f:
                 tables_data = json.load(f)
@@ -652,11 +732,12 @@ class PDFEmbeddingService:
                 # 生成唯一ID
                 table_id_str = self._generate_id(source_file, "table", table_id, table_path)
                 
-                # 构建元数据
+                # 构建元数据 - 添加项目名称
                 table_metadata = {
                     "source_file": source_file,
                     "document_title": title,
                     "content_type": "table",  # 关键字段：区分文本、图片和表格
+                    "project_name": project_name,  # 🆕 项目隔离字段
                     "table_id": table_id,
                     "table_path": table_path,  # 保留原始本地路径
                     "minio_url": minio_url,    # 🆕 添加MinIO URL
@@ -738,14 +819,13 @@ class PDFEmbeddingService:
         print(f"📝 使用基本描述: {table_id}")
         return basic_description
     
-    def _generate_image_description(self, image_path: str, caption: str, context: str, image_id: str) -> str:
+    def _generate_image_description(self, image_path: str, caption: str, image_id: str) -> str:
         """
         生成图片描述 - 优先使用VLM，失败时使用基本信息
         
         Args:
             image_path: 图片路径
             caption: 基本标题
-            context: 上下文信息
             image_id: 图片ID
             
         Returns:
@@ -776,8 +856,7 @@ class PDFEmbeddingService:
 - **不合格输出**: “这张图片向我们展示了一个看起来很旧的金属管道，它连接着另一个部分，连接处有很多棕色的锈迹，可能是因为长时间暴露在潮湿环境中导致的。”
 """
                 
-                if context:
-                    prompt += f"\n\n上下文信息: {context}"
+                # [已移除] 不再添加context信息到VLM提示词
                 
                 # 调用VLM生成描述
                 vlm_description = self.vlm_client.get_image_description_gemini(
@@ -788,8 +867,7 @@ class PDFEmbeddingService:
                 if vlm_description and not vlm_description.startswith("Error:"):
                     # 组合完整描述
                     full_description = f"图片标题: {caption}\n\n详细描述: {vlm_description}"
-                    if context:
-                        full_description += f"\n\n上下文: {context}"
+                    # [已移除] 不再添加context信息到VLM描述
                     
                     print(f"✅ VLM描述生成成功: {image_id}")
                     return full_description
@@ -801,8 +879,7 @@ class PDFEmbeddingService:
         
         # 如果VLM不可用或失败，使用基本信息
         basic_description = f"图片标题: {caption}"
-        if context:
-            basic_description += f"\n上下文: {context}"
+        # [已移除] 不再添加context信息到基本描述
         
         print(f"📝 使用基本描述: {image_id}")
         return basic_description
@@ -817,15 +894,17 @@ class PDFEmbeddingService:
     def search(self, query: str, 
                content_type: Optional[str] = None,
                top_k: int = 5, 
-               source_file_filter: Optional[str] = None) -> List[Dict]:
+               source_file_filter: Optional[str] = None,
+               project_name: Optional[str] = None) -> List[Dict]:
         """
         统一搜索接口
         
         Args:
             query: 搜索查询
-            content_type: 内容类型过滤 ("text", "image", None表示搜索全部)
+            content_type: 内容类型过滤 ("text", "image", "table", None表示搜索全部)
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
+            project_name: 项目名称过滤器（实现项目隔离）
             
         Returns:
             List[Dict]: 搜索结果
@@ -839,6 +918,22 @@ class PDFEmbeddingService:
                 
             if source_file_filter:
                 where_condition["source_file"] = source_file_filter
+                
+            if project_name:
+                # 🔧 修复：确保完全的项目隔离
+                # 严格匹配项目名称，只返回有project_name字段且值匹配的数据
+                if where_condition:
+                    # 如果已有其他条件，使用$and组合
+                    where_condition = {
+                        "$and": [
+                            where_condition,  # 现有条件
+                            {"project_name": {"$eq": project_name}}  # 严格匹配项目名称
+                        ]
+                    }
+                else:
+                    # 如果没有其他条件，直接使用项目条件
+                    where_condition = {"project_name": {"$eq": project_name}}
+                print(f"🔍 严格限定项目范围: {project_name}")
             
             # 执行搜索
             results = self.collection.query(
@@ -869,21 +964,23 @@ class PDFEmbeddingService:
     def search_similar_content(self, query: str, 
                               content_type: Optional[str] = None,
                               top_k: int = 5, 
-                              source_file_filter: Optional[str] = None) -> List[Dict]:
+                              source_file_filter: Optional[str] = None,
+                              project_name: Optional[str] = None) -> List[Dict]:
         """
         搜索相似内容 - search方法的友好接口
         
         Args:
             query: 搜索查询
-            content_type: 内容类型过滤 ("text", "image", None表示搜索全部)
+            content_type: 内容类型过滤 ("text", "image", "table", None表示搜索全部)
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
+            project_name: 项目名称过滤器（实现项目隔离）
             
         Returns:
             List[Dict]: 搜索结果，每个结果包含内容、元数据和相似度
         """
         # 调用原始search方法
-        results = self.search(query, content_type, top_k, source_file_filter)
+        results = self.search(query, content_type, top_k, source_file_filter, project_name)
         
         # 转换distance为similarity (distance越小，相似度越高)
         for result in results:
@@ -901,7 +998,7 @@ class PDFEmbeddingService:
             
         return results
     
-    def search_text_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> List[Dict]:
+    def search_text_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None, project_name: Optional[str] = None) -> List[Dict]:
         """
         只搜索文本内容
         
@@ -909,13 +1006,14 @@ class PDFEmbeddingService:
             query: 搜索查询
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
+            project_name: 项目名称过滤器（实现项目隔离）
             
         Returns:
             List[Dict]: 搜索结果
         """
-        return self.search(query, content_type="text", top_k=top_k, source_file_filter=source_file_filter)
+        return self.search(query, content_type="text", top_k=top_k, source_file_filter=source_file_filter, project_name=project_name)
     
-    def search_images_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> List[Dict]:
+    def search_images_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None, project_name: Optional[str] = None) -> List[Dict]:
         """
         只搜索图片内容
         
@@ -923,13 +1021,14 @@ class PDFEmbeddingService:
             query: 搜索查询
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
+            project_name: 项目名称过滤器（实现项目隔离）
             
         Returns:
             List[Dict]: 搜索结果
         """
-        return self.search(query, content_type="image", top_k=top_k, source_file_filter=source_file_filter)
+        return self.search(query, content_type="image", top_k=top_k, source_file_filter=source_file_filter, project_name=project_name)
     
-    def search_tables_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> List[Dict]:
+    def search_tables_only(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None, project_name: Optional[str] = None) -> List[Dict]:
         """
         只搜索表格内容
         
@@ -937,11 +1036,216 @@ class PDFEmbeddingService:
             query: 搜索查询
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
+            project_name: 项目名称过滤器（实现项目隔离）
             
         Returns:
             List[Dict]: 搜索结果
         """
-        return self.search(query, content_type="table", top_k=top_k, source_file_filter=source_file_filter)
+        return self.search(query, content_type="table", top_k=top_k, source_file_filter=source_file_filter, project_name=project_name)
+    
+    def search_by_project(self, query: str, project_name: str, top_k: int = 5, content_type: Optional[str] = None) -> List[Dict]:
+        """
+        按项目搜索 - 项目隔离的专用接口
+        
+        Args:
+            query: 搜索查询
+            project_name: 项目名称（必填）
+            top_k: 返回结果数量
+            content_type: 内容类型过滤 ("text", "image", "table", None表示搜索全部)
+            
+        Returns:
+            List[Dict]: 搜索结果
+        """
+        print(f"🏢 项目限定搜索: '{project_name}' - 查询: '{query}'")
+        return self.search(query, content_type=content_type, top_k=top_k, project_name=project_name)
+    
+    def get_available_projects(self) -> List[str]:
+        """
+        获取所有可用的项目名称
+        
+        Returns:
+            List[str]: 项目名称列表
+        """
+        try:
+            # 获取所有元数据
+            all_results = self.collection.get()
+            
+            # 提取所有项目名称
+            projects = set()
+            for metadata in all_results["metadatas"]:
+                project_name = metadata.get("project_name", "default")
+                projects.add(project_name)
+            
+            project_list = sorted(list(projects))
+            print(f"📋 发现 {len(project_list)} 个项目: {', '.join(project_list)}")
+            return project_list
+            
+        except Exception as e:
+            print(f"❌ 获取项目列表失败: {e}")
+            return []
+    
+    def get_project_stats(self, project_name: str) -> Dict:
+        """
+        获取特定项目的统计信息
+        
+        Args:
+            project_name: 项目名称
+            
+        Returns:
+            Dict: 项目统计信息
+        """
+        try:
+            # 获取项目的所有内容 - 使用严格匹配
+            where_condition = {"project_name": {"$eq": project_name}}
+            results = self.collection.get(where=where_condition)
+            
+            total_count = len(results["documents"])
+            text_count = 0
+            image_count = 0
+            table_count = 0
+            
+            for metadata in results["metadatas"]:
+                content_type = metadata.get("content_type", "unknown")
+                if content_type == "text":
+                    text_count += 1
+                elif content_type == "image":
+                    image_count += 1
+                elif content_type == "table":
+                    table_count += 1
+            
+            stats = {
+                "project_name": project_name,
+                "total_embeddings": total_count,
+                "text_embeddings": text_count,
+                "image_embeddings": image_count,
+                "table_embeddings": table_count,
+                "collection_name": self.collection_name
+            }
+            
+            print(f"📊 项目 '{project_name}' 统计: 总计{total_count}条 (文本{text_count}, 图片{image_count}, 表格{table_count})")
+            return stats
+            
+        except Exception as e:
+            print(f"❌ 获取项目统计失败: {e}")
+            return {"project_name": project_name, "error": str(e)}
+    
+    def migrate_legacy_data(self) -> Dict:
+        """
+        迁移老数据，为没有project_name字段的数据添加项目名称
+        
+        Returns:
+            Dict: 迁移结果统计
+        """
+        try:
+            print("🔄 开始迁移老数据，为缺少project_name的数据添加项目名称...")
+            
+            # 获取所有数据
+            all_results = self.collection.get()
+            
+            migrated_count = 0
+            total_count = len(all_results["documents"])
+            
+            print(f"📊 找到 {total_count} 条数据，检查哪些需要迁移...")
+            
+            # 批量更新没有project_name的数据
+            ids_to_update = []
+            metadatas_to_update = []
+            
+            for i, metadata in enumerate(all_results["metadatas"]):
+                doc_id = all_results["ids"][i]
+                
+                # 如果没有project_name字段，添加它
+                if "project_name" not in metadata:
+                    source_file = metadata.get("source_file", "unknown")
+                    project_name = self._extract_project_name(source_file)
+                    
+                    # 更新元数据
+                    updated_metadata = metadata.copy()
+                    updated_metadata["project_name"] = project_name
+                    
+                    ids_to_update.append(doc_id)
+                    metadatas_to_update.append(updated_metadata)
+                    migrated_count += 1
+                    
+                    if migrated_count <= 5:  # 只显示前5个示例
+                        print(f"  📄 {source_file} → 项目: {project_name}")
+            
+            # 执行批量更新
+            if ids_to_update:
+                print(f"\n🔄 正在更新 {len(ids_to_update)} 条数据...")
+                self.collection.update(
+                    ids=ids_to_update,
+                    metadatas=metadatas_to_update
+                )
+                print(f"✅ 数据迁移完成!")
+            else:
+                print("ℹ️ 所有数据都已包含project_name字段，无需迁移")
+            
+            # 返回迁移统计
+            result = {
+                "total_documents": total_count,
+                "migrated_documents": migrated_count,
+                "status": "success",
+                "message": f"成功迁移 {migrated_count}/{total_count} 条数据"
+            }
+            
+            print(f"\n📋 迁移结果: {result['message']}")
+            return result
+            
+        except Exception as e:
+            error_msg = f"数据迁移失败: {e}"
+            print(f"❌ {error_msg}")
+            return {
+                "status": "error",
+                "error": error_msg,
+                "migrated_documents": 0
+            }
+    
+    def get_legacy_data_stats(self) -> Dict:
+        """
+        获取老数据统计（没有project_name字段的数据）
+        
+        Returns:
+            Dict: 老数据统计信息
+        """
+        try:
+            # 获取所有数据
+            all_results = self.collection.get()
+            
+            total_count = len(all_results["documents"])
+            legacy_count = 0
+            projects_with_data = {}
+            
+            for metadata in all_results["metadatas"]:
+                if "project_name" not in metadata:
+                    legacy_count += 1
+                    # 统计来源文件
+                    source_file = metadata.get("source_file", "unknown")
+                    if source_file not in projects_with_data:
+                        projects_with_data[source_file] = 0
+                    projects_with_data[source_file] += 1
+            
+            stats = {
+                "total_documents": total_count,
+                "legacy_documents": legacy_count,
+                "modern_documents": total_count - legacy_count,
+                "legacy_files": list(projects_with_data.keys()),
+                "legacy_file_stats": projects_with_data
+            }
+            
+            print(f"📊 老数据统计: {legacy_count}/{total_count} 条数据缺少project_name字段")
+            if projects_with_data:
+                print("📁 涉及的文件:")
+                for file, count in list(projects_with_data.items())[:5]:  # 只显示前5个
+                    print(f"  - {file}: {count} 条")
+                if len(projects_with_data) > 5:
+                    print(f"  - ... 还有 {len(projects_with_data) - 5} 个文件")
+            
+            return stats
+            
+        except Exception as e:
+            print(f"❌ 获取老数据统计失败: {e}")
+            return {"error": str(e)}
     
     def search_by_filename(self, filename: str, top_k: int = 10) -> List[Dict]:
         """

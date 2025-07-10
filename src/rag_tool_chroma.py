@@ -655,14 +655,15 @@ class RAGTool(Tool):
             logger.error(f"文档搜索失败: {e}")
             return json.dumps({"status": "error", "message": str(e)})
     
-    def _search_images(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> str:
+    def _search_images(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None, project_name: Optional[str] = None) -> str:
         """
-        搜索图片内容
+        搜索图片内容 - 支持项目隔离
         
         Args:
             query: 搜索关键词
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
+            project_name: 项目名称过滤器（实现项目隔离）
             
         Returns:
             包含搜索结果的JSON字符串
@@ -677,7 +678,8 @@ class RAGTool(Tool):
             results = self.pdf_embedding_service.search_images_only(
                 query=query, 
                 top_k=top_k, 
-                source_file_filter=source_file_filter
+                source_file_filter=source_file_filter,
+                project_name=project_name  # 🆕 项目隔离参数
             )
             
             simplified_results = []
