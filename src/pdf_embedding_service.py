@@ -36,6 +36,14 @@ except ImportError:
     OPENROUTER_CLIENT_AVAILABLE = False
     print("⚠️ OpenRouter客户端不可用，图片VLM描述功能受限")
 
+# 尝试导入MinIO客户端
+try:
+    from minio import Minio
+    MINIO_AVAILABLE = True
+except ImportError:
+    MINIO_AVAILABLE = False
+    print("⚠️ MinIO客户端不可用，图片上传功能受限")
+
 class PDFEmbeddingService:
     """PDF内容向量化服务 - 统一存储文本和图片"""
     
@@ -43,7 +51,13 @@ class PDFEmbeddingService:
                  model_name: str = "BAAI/bge-m3", 
                  chroma_db_path: str = "rag_storage",
                  collection_name: str = "documents",
-                 enable_vlm_description: bool = True):
+                 enable_vlm_description: bool = True,
+                 enable_minio_upload: bool = True,
+                 minio_endpoint: str = "43.139.19.144:9000",
+                 minio_access_key: str = "minioadmin",
+                 minio_secret_key: str = "minioadmin",
+                 minio_bucket: str = "images",
+                 minio_secure: bool = False):
         """
         初始化PDF嵌入服务
         
@@ -52,6 +66,12 @@ class PDFEmbeddingService:
             chroma_db_path: ChromaDB存储路径
             collection_name: 集合名称，统一为"documents"
             enable_vlm_description: 是否启用VLM图片描述功能
+            enable_minio_upload: 是否启用MinIO上传功能
+            minio_endpoint: MinIO服务端点
+            minio_access_key: MinIO访问密钥
+            minio_secret_key: MinIO密钥
+            minio_bucket: MinIO存储桶名称
+            minio_secure: 是否使用HTTPS
         """
         self.model_name = model_name
         self.chroma_db_path = chroma_db_path
@@ -59,6 +79,14 @@ class PDFEmbeddingService:
         self.enable_vlm_description = enable_vlm_description
         self.device = "cuda" if TORCH_AVAILABLE and torch.cuda.is_available() else "cpu"
         self.model = None
+        
+        # MinIO配置
+        self.enable_minio_upload = enable_minio_upload
+        self.minio_endpoint = minio_endpoint
+        self.minio_access_key = minio_access_key
+        self.minio_secret_key = minio_secret_key
+        self.minio_bucket = minio_bucket
+        self.minio_secure = minio_secure
         
         # 初始化VLM客户端
         self.vlm_client = None
@@ -68,6 +96,24 @@ class PDFEmbeddingService:
                 print("✅ VLM客户端初始化成功，将对图片进行深度描述")
             except Exception as e:
                 print(f"⚠️ VLM客户端初始化失败: {e}")
+        
+        # 初始化MinIO客户端
+        self.minio_client = None
+        if self.enable_minio_upload and MINIO_AVAILABLE:
+            try:
+                self.minio_client = Minio(
+                    self.minio_endpoint,
+                    access_key=self.minio_access_key,
+                    secret_key=self.minio_secret_key,
+                    secure=self.minio_secure
+                )
+                # 检查并创建存储桶
+                if not self.minio_client.bucket_exists(self.minio_bucket):
+                    self.minio_client.make_bucket(self.minio_bucket)
+                print(f"✅ MinIO客户端初始化成功，存储桶: {self.minio_bucket}")
+            except Exception as e:
+                print(f"⚠️ MinIO客户端初始化失败: {e}")
+                self.minio_client = None
         
         # 初始化ChromaDB
         self._init_chroma_db()
@@ -139,6 +185,51 @@ class PDFEmbeddingService:
         
         # 如果所有重试都失败了
         raise RuntimeError("ChromaDB初始化失败，已达到最大重试次数")
+    
+    def _upload_to_minio(self, file_path: str, object_name: str = None) -> Optional[str]:
+        """
+        上传文件到MinIO并返回公共URL
+        
+        Args:
+            file_path: 本地文件路径
+            object_name: MinIO中的对象名称，如果为None则使用文件名
+            
+        Returns:
+            Optional[str]: 公共URL，失败时返回None
+        """
+        if not self.minio_client or not os.path.exists(file_path):
+            return None
+        
+        try:
+            # 生成对象名称
+            if object_name is None:
+                # 使用时间戳和原文件名生成唯一对象名
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = os.path.basename(file_path)
+                name, ext = os.path.splitext(filename)
+                object_name = f"{timestamp}_{uuid.uuid4().hex[:8]}_{name}{ext}"
+            
+            # 上传文件
+            self.minio_client.fput_object(
+                self.minio_bucket,
+                object_name,
+                file_path
+            )
+            
+            # 构造公共URL
+            if self.minio_secure:
+                protocol = "https"
+            else:
+                protocol = "http"
+            
+            public_url = f"{protocol}://{self.minio_endpoint}/{self.minio_bucket}/{object_name}"
+            
+            print(f"✅ 文件上传到MinIO成功: {object_name}")
+            return public_url
+            
+        except Exception as e:
+            print(f"❌ MinIO上传失败: {e}")
+            return None
     
     def embed_parsed_pdf(self, 
                         parsed_content_path: str, 
@@ -469,6 +560,15 @@ class PDFEmbeddingService:
                     if context:
                         image_description += f"\n上下文: {context}"
                 
+                # 🆕 上传图片到MinIO
+                minio_url = None
+                if self.enable_minio_upload and os.path.exists(full_image_path):
+                    # 生成对象名称：项目_图片ID_原文件名
+                    filename = os.path.basename(full_image_path)
+                    name, ext = os.path.splitext(filename)
+                    object_name = f"images/{source_file}_{image_id}_{name}{ext}"
+                    minio_url = self._upload_to_minio(full_image_path, object_name)
+                
                 # 生成唯一ID
                 img_id = self._generate_id(source_file, "image", image_id, image_path)
                 
@@ -478,9 +578,12 @@ class PDFEmbeddingService:
                     "document_title": title,
                     "content_type": "image",  # 关键字段：区分文本和图片
                     "image_id": image_id,
-                    "image_path": image_path,
+                    "image_path": image_path,  # 保留原始本地路径
+                    "minio_url": minio_url,    # 🆕 添加MinIO URL
                     "caption": caption,
                     "context": context,
+                    "vlm_description": image_description,  # 🆕 保存完整的VLM描述到元数据
+                    "original_caption": caption,  # 🆕 保存原始标题
                     "width": image_info.get("width", 0),
                     "height": image_info.get("height", 0),
                     "figure_size": image_info.get("figure_size", 0),
@@ -488,7 +591,10 @@ class PDFEmbeddingService:
                     "embedding_time": datetime.now().isoformat(),
                     "parser_output_path": parser_output_dir,
                     "vlm_description_enabled": self.enable_vlm_description,
-                    "has_vlm_description": self.vlm_client is not None
+                    "has_vlm_description": self.vlm_client is not None,
+                    "vlm_success": not image_description.startswith("Error:") and len(image_description) > len(caption),  # 🆕 VLM是否成功生成描述
+                    "minio_upload_enabled": self.enable_minio_upload,
+                    "has_minio_url": minio_url is not None
                 }
                 
                 documents.append(image_description)
@@ -534,6 +640,15 @@ class PDFEmbeddingService:
                 if not table_description.strip():
                     table_description = f"表格: {caption}"
                 
+                # 🆕 上传表格图片到MinIO
+                minio_url = None
+                if self.enable_minio_upload and os.path.exists(full_table_path):
+                    # 生成对象名称：项目_表格ID_原文件名
+                    filename = os.path.basename(full_table_path)
+                    name, ext = os.path.splitext(filename)
+                    object_name = f"tables/{source_file}_{table_id}_{name}{ext}"
+                    minio_url = self._upload_to_minio(full_table_path, object_name)
+                
                 # 生成唯一ID
                 table_id_str = self._generate_id(source_file, "table", table_id, table_path)
                 
@@ -543,8 +658,11 @@ class PDFEmbeddingService:
                     "document_title": title,
                     "content_type": "table",  # 关键字段：区分文本、图片和表格
                     "table_id": table_id,
-                    "table_path": table_path,
+                    "table_path": table_path,  # 保留原始本地路径
+                    "minio_url": minio_url,    # 🆕 添加MinIO URL
                     "caption": caption,
+                    "vlm_description": table_description,  # 🆕 保存完整的VLM表格描述到元数据
+                    "original_caption": caption,  # 🆕 保存原始标题
                     "width": table_info.get("width", 0),
                     "height": table_info.get("height", 0),
                     "figure_size": table_info.get("figure_size", 0),
@@ -552,7 +670,10 @@ class PDFEmbeddingService:
                     "embedding_time": datetime.now().isoformat(),
                     "parser_output_path": parser_output_dir,
                     "vlm_description_enabled": self.enable_vlm_description,
-                    "has_vlm_description": self.vlm_client is not None
+                    "has_vlm_description": self.vlm_client is not None,
+                    "vlm_success": not table_description.startswith("Error:") and len(table_description) > len(caption),  # 🆕 VLM是否成功生成描述
+                    "minio_upload_enabled": self.enable_minio_upload,
+                    "has_minio_url": minio_url is not None
                 }
                 
                 documents.append(table_description)

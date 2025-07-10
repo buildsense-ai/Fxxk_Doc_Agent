@@ -9,11 +9,11 @@ import os
 import argparse
 
 # 添加src目录到Python路径
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.enhanced_react_agent import EnhancedReActAgent
-from src.deepseek_client import DeepSeekClient
-from src.tools import create_core_tool_registry
+from enhanced_react_agent import EnhancedReActAgent
+from deepseek_client import DeepSeekClient
+from tools import create_core_tool_registry
 
 def main():
     """主函数"""

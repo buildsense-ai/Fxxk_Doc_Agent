@@ -7,7 +7,7 @@ import json
 from typing import Dict, Any, List, Optional
 
 # 导入工具基类
-from src.base_tool import Tool
+from base_tool import Tool
 
 # 核心五工具架构
 
@@ -32,16 +32,7 @@ class ToolRegistry:
         else:
             print("❌ RAG工具类不可用")
         
-        # 2. 图片RAG工具 - 图片上传和基于文本描述的图片检索
-        if ImageRAGTool:
-            try:
-                image_rag_tool = ImageRAGTool()
-                core_tools.append(image_rag_tool)
-                print("✅ 图片RAG工具加载成功")
-            except Exception as e:
-                print(f"❌ 图片RAG工具加载失败: {e}")
-        else:
-            print("❌ 图片RAG工具类不可用")
+        # 2. 图片上传功能已整合到RAG工具中
         
         # 3. PDF解析工具 - 智能提取PDF中的文本、图片和表格
         if PDFParserTool:
@@ -54,16 +45,18 @@ class ToolRegistry:
         else:
             print("❌ PDF解析工具类不可用")
         
-        # 4. PDF Embedding工具 - 将解析后的PDF内容进行向量化存储
-        if PDFEmbeddingTool:
+        # 4. PDF Embedding功能已整合到RAG工具中
+        
+        # 5. 文档生成工具 - AI驱动的智能文档创建
+        if DocumentGeneratorTool:
             try:
-                pdf_embedding_tool = PDFEmbeddingTool()
-                core_tools.append(pdf_embedding_tool)
-                print("✅ PDF Embedding工具加载成功")
+                document_generator_tool = DocumentGeneratorTool()
+                core_tools.append(document_generator_tool)
+                print("✅ 文档生成工具加载成功")
             except Exception as e:
-                print(f"❌ PDF Embedding工具加载失败: {e}")
+                print(f"❌ 文档生成工具加载失败: {e}")
         else:
-            print("❌ PDF Embedding工具类不可用")
+            print("❌ 文档生成工具类不可用")
         
         # 注册所有工具
         for tool in core_tools:
@@ -99,9 +92,9 @@ class ToolRegistry:
         summary = "🔧 ReactAgent系统全套工具:\n\n"
         
         tool_descriptions = {
-            "rag_tool": "📚 RAG文档处理 - 向量化存储和智能检索",
-            "image_rag_tool": "🖼️ 图片RAG工具 - 图片存储和语义检索", 
+            "rag_tool": "📚 统一RAG工具 - 文档/图片向量化存储和智能检索",
             "pdf_parser": "📄 PDF智能解析 - 提取文本、图片、表格并结构化重组",
+            "document_generator": "📝 文档生成工具 - AI驱动的智能文档创建",
         }
         
         for tool_name, description in tool_descriptions.items():
@@ -134,29 +127,35 @@ def create_core_tool_registry(deepseek_client=None) -> ToolRegistry:
 
 # 系统核心功能使用指南
 SYSTEM_FUNCTIONS_GUIDE = """
-🎯 ReactAgent系统核心功能使用流程:
+🎯 ReactAgent系统三大核心工具架构:
 
-**功能1: 🖼️ 图片RAG系统**
-工具: image_rag_tool
-- 参数: action="upload/search", image_path="图片路径", description="图片描述", query="搜索查询"
-- 功能: 图片上传和基于文本描述的图片检索
-- 处理逻辑:
-  * 上传图片 → AI生成描述 → 向量化存储 → 文本查询检索相关图片
-- 适用场景: 图片知识库管理、基于描述的图片搜索、图片资料整理
-
-**功能2: 📄 PDF智能解析**
-工具: pdf_parser
+**工具1: 📄 PDF解析工具**
+工具名: pdf_parser
 - 参数: pdf_path="PDF文件路径", action="parse/list_models/get_stats", output_dir="输出目录", model_name="模型名称"
 - 功能: 智能提取PDF中的文本、图片、表格，并重新组织为结构化数据
 - 处理逻辑:
   * PDF解析 → 文本提取 → 图片/表格识别 → LLM内容重组 → 结构化JSON输出
 - 适用场景: PDF文档内容提取、学术论文分析、技术文档处理、图片表格提取
 
-**功能3: 📚 RAG检索**
-工具: rag_tool
-- 参数: operation="search/add_document/list_documents", query="搜索内容", file_path="文档路径"
-- 功能: 文档embedding处理和智能搜索
-- 适用场景: 简单问答、文档搜索、知识管理
+**工具2: 📚 统一RAG工具**
+工具名: rag_tool
+- 参数: action="upload/upload_image/search/search_images/search_tables", file_path="文档路径", query="搜索内容"
+- 功能: 文档和图片的统一向量化存储、语义搜索、专门检索
+- 处理逻辑:
+  * 文档上传 → 向量化存储 → 语义检索
+  * 图片上传 → AI描述生成 → 向量化存储 → 文本查询检索相关图片
+- 适用场景: 统一知识库管理、多模态内容检索、专业搜索
+
+**工具3: 📝 文档生成工具**
+工具名: document_generator
+- 参数: action="generate_long_document/generate_short_document/check_status", title="标题", requirements="要求"
+- 功能: AI驱动的智能文档创建、知识检索整合、多格式输出
+- 处理逻辑:
+  * 需求分析 → 大纲规划 → 知识检索 → 内容生成 → 格式转换 → 云端存储
+- 适用场景: 报告生成、技术文档创建、知识整合
+
+🔄 **工具间协作流程:**
+PDF解析 → 统一RAG(向量化存储) → 文档生成(知识检索+AI创作)
 """
 
 try:
@@ -175,21 +174,17 @@ except ImportError:
     except ImportError:
         PDFParserTool = None
 
-try:
-    from image_rag_tool import ImageRAGTool
-except ImportError:
-    try:
-        from .image_rag_tool import ImageRAGTool
-    except ImportError:
-        ImageRAGTool = None
+# 已删除的工具：
+# - image_rag_tool: 图片上传功能已整合到RAG工具中
+# - pdf_embedding_tool: PDF embedding功能已整合到RAG工具中
 
 try:
-    from pdf_embedding_tool import PDFEmbeddingTool
+    from document_generator.document_generator_tool import DocumentGeneratorTool
 except ImportError:
     try:
-        from .pdf_embedding_tool import PDFEmbeddingTool
+        from .document_generator.document_generator_tool import DocumentGeneratorTool
     except ImportError:
-        PDFEmbeddingTool = None
+        DocumentGeneratorTool = None
 
 def register_tools(agent):
     """注册所有工具到ReAct Agent"""
@@ -294,135 +289,51 @@ def register_tools(agent):
             "function": lambda **kwargs: PDFParserTool().execute(**kwargs)
         },
 
+        # 已删除的工具：
+        # - image_rag_tool: 图片上传功能已整合到统一RAG工具中
+        # - pdf_embedding: PDF embedding功能已整合到统一RAG工具中
+        
         {
-            "name": "image_rag_tool",
-            "description": """🖼️ 图片RAG工具 - 图片上传和基于文本描述的图片检索
+            "name": "document_generator",
+            "description": """📝 文档生成工具 - AI驱动的智能文档创建系统
 
 核心功能：
-- 🖼️ 图片上传存储：支持多种图片格式上传和存储
-- 📝 智能描述生成：AI自动生成图片描述
-- 🔍 文本检索图片：基于描述搜索相关图片
-- 💾 向量化存储：图片描述向量化存储和管理
-- 🗄️ 图片知识库：建立企业图片资产管理
-- 🆕 PDF解析后images.json批量处理：自动处理context并embedding
-
-存储系统：
-- MinIO对象存储：图片文件存储
-- MySQL数据库：图片元数据管理
-- ChromaDB向量库：描述向量化检索
-
-适用场景：图片知识库管理、基于描述的图片搜索、图片资料整理""",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "enum": ["upload", "search", "list", "stats", "process_images_json"],
-                        "description": "操作类型：upload(上传图片), search(搜索图片), list(列出图片), stats(统计信息), process_images_json(处理PDF解析的images.json)"
-                    },
-                    "image_path": {
-                        "type": "string",
-                        "description": "图片文件路径（upload时需要）"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "图片描述（upload时可选）"
-                    },
-                    "query": {
-                        "type": "string",
-                        "description": "搜索查询（search时需要）"
-                    },
-                    "folder_path": {
-                        "type": "string",
-                        "description": "PDF解析后的文件夹路径（process_images_json时需要）"
-                    },
-                    "project_name": {
-                        "type": "string",
-                        "description": "项目名称（process_images_json时可选）"
-                    },
-                    "top_k": {
-                        "type": "integer",
-                        "default": 5,
-                        "description": "返回结果数量（search时可选）"
-                    },
-                    "min_score": {
-                        "type": "number",
-                        "default": 0.0,
-                        "description": "最小相似度分数（search时可选）"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "列表显示数量（list时可选）"
-                    },
-                    "offset": {
-                        "type": "integer",
-                        "default": 0,
-                        "description": "列表偏移量（list时可选）"
-                    }
-                },
-                "required": ["action"]
-            },
-            "function": lambda **kwargs: ImageRAGTool().execute(**kwargs)
-        },
-
-        {
-            "name": "pdf_embedding",
-            "description": """📊 PDF内容向量化工具 - 统一处理文本和图片的embedding存储
-
-核心功能：
-- 📊 统一向量化：将parsed_content.json和images.json统一进行embedding
-- 🔍 智能搜索：支持按内容类型过滤的统一语义搜索
-- 📋 元数据管理：完整保留源文件、页面、位置等元数据
-- 📈 统计分析：提供embedding统计和集合信息
-
-存储优势：
-- 单一集合存储：文本和图片存储在同一个ChromaDB集合中
-- 元数据区分：通过content_type字段区分文本和图片
-- 统一搜索：一个接口可以搜索文本、图片或全部内容
+- 📝 智能文档生成：基于AI的长文档和短文档生成
+- 🗂️ 大纲规划：自动规划文档结构和章节
+- 🔍 知识检索：集成向量数据库进行知识检索
+- 🎨 多格式输出：支持Markdown和DOCX格式输出
+- ☁️ 云端存储：自动上传到MinIO云存储
+- 📊 任务管理：支持任务状态查询和结果获取
 
 工作流程：
-1. PDF解析 → parsed_content.json + images.json
-2. PDF embedding → 统一向量化存储
-3. 智能搜索 → 按类型过滤的语义检索
+1. 需求分析 → 规划大纲 → 知识检索 → 内容生成
+2. 自我审查 → 内容优化 → 格式转换 → 云端存储
 
-适用场景：PDF内容知识库构建、多模态语义搜索、内容分析""",
+适用场景：报告生成、技术文档创建、知识整合、内容创作""",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["embed", "search", "stats"],
-                        "default": "embed",
-                        "description": "操作类型：embed(向量化PDF内容), search(统一搜索), stats(统计信息)"
+                        "enum": ["generate_long_document", "generate_short_document", "check_status", "list_tasks", "get_result"],
+                        "description": "操作类型：generate_long_document(生成长文档), generate_short_document(生成短文档), check_status(查询状态), list_tasks(列出任务), get_result(获取结果)"
                     },
-                    "parser_output_dir": {
+                    "title": {
                         "type": "string",
-                        "description": "PDF解析器输出目录路径（embed操作必需）"
+                        "description": "文档标题（生成操作必需）"
                     },
-                    "query": {
+                    "requirements": {
                         "type": "string",
-                        "description": "搜索查询内容（search操作必需）"
+                        "description": "文档要求和描述（生成操作必需）"
                     },
-                    "content_type": {
+                    "task_id": {
                         "type": "string",
-                        "enum": ["text", "image", "all"],
-                        "default": "all",
-                        "description": "内容类型过滤：text(仅文本), image(仅图片), all(全部内容)"
-                    },
-                    "top_k": {
-                        "type": "integer",
-                        "default": 5,
-                        "description": "返回结果数量（search操作可选）"
-                    },
-                    "source_file_filter": {
-                        "type": "string",
-                        "description": "按源文件过滤搜索结果（search操作可选）"
+                        "description": "任务ID（状态查询和获取结果时需要）"
                     }
                 },
                 "required": ["action"]
             },
-            "function": lambda **kwargs: PDFEmbeddingTool().execute(**kwargs)
+            "function": lambda **kwargs: DocumentGeneratorTool().execute(**kwargs)
         }
     ]
     
@@ -435,7 +346,6 @@ def register_tools(agent):
         )
     
     print(f"✅ 已注册{len(tools)}个核心工具：")
-    print("   📚 rag_tool - RAG文档处理工具")
+    print("   📚 rag_tool - 统一RAG工具（文档/图片向量化和检索）")
     print("   📄 pdf_parser - PDF智能解析工具")
-    print("   🖼️ image_rag_tool - 图片RAG工具")
-    print("   📊 pdf_embedding - PDF内容向量化工具") 
+    print("   📝 document_generator - 文档生成工具（AI驱动创作）") 

@@ -3,10 +3,10 @@ import httpx
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-
 class OpenRouterClient:
     def __init__(self, api_key=None):
+        # 每次创建实例时重新加载环境变量，确保获取最新的API key
+        load_dotenv(override=True)
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         if not self.api_key:
             raise ValueError("OpenRouter API key not found. Please set the OPENROUTER_API_KEY environment variable.")

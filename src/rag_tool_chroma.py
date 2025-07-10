@@ -437,6 +437,8 @@ class RAGTool(Tool):
         try:
             if action == "upload":
                 return self._upload_document(**kwargs)
+            elif action == "upload_image":
+                return self._upload_image(**kwargs)
             elif action == "search":
                 return self._search_documents(**kwargs)
             elif action == "search_images":
@@ -463,6 +465,8 @@ class RAGTool(Tool):
                 return f"""❌ 不支持的操作: {action}
 
 📋 **支持的操作列表:**
+• upload - 上传文档
+• upload_image - 上传图片并生成AI描述
 • search - 通用搜索
 • search_images - 搜索图片
 • search_tables - 搜索表格  
@@ -472,6 +476,8 @@ class RAGTool(Tool):
 • process_parsed_folder - 处理解析文件夹
 
 💡 **使用示例:**
+• 上传文档: {{"action": "upload", "file_path": "document.pdf"}}
+• 上传图片: {{"action": "upload_image", "image_path": "image.jpg", "description": "可选描述"}}
 • 搜索图片: {{"action": "search_images", "query": "医灵古庙", "top_k": 8}}
 • 统计图片: {{"action": "count_images", "query": "医灵古庙"}}
 """
@@ -541,6 +547,73 @@ class RAGTool(Tool):
         except Exception as e:
             return f"❌ 文档处理失败: {str(e)}"
     
+    def _upload_image(self, image_path: str, description: str = "") -> str:
+        """
+        上传图片，生成AI描述，并将其嵌入到统一知识库
+        
+        Args:
+            image_path: 图片文件路径
+            description: 用户提供的可选描述
+            
+        Returns:
+            处理结果的JSON字符串
+        """
+        try:
+            from pathlib import Path
+            
+            if not image_path or not os.path.exists(image_path):
+                return json.dumps({"status": "error", "message": "图片路径不存在或未提供"}, ensure_ascii=False)
+            
+            # 导入OpenRouter客户端用于AI描述生成
+            try:
+                from src.openrouter_client import OpenRouterClient
+                openrouter_client = OpenRouterClient()
+            except Exception as e:
+                return json.dumps({"status": "error", "message": f"AI服务初始化失败: {e}"}, ensure_ascii=False)
+            
+            logger.info(f"🚀 开始处理上传的图片: {image_path}")
+            
+            # 1. 使用Gemini生成图片描述
+            prompt = "请详细描述这张图片的内容，包括场景、物体、人物、风格和任何可见的文本。"
+            ai_description = openrouter_client.get_image_description_gemini(image_path, prompt=prompt)
+            
+            if "Error:" in ai_description:
+                raise Exception(f"AI描述生成失败: {ai_description}")
+
+            final_description = f"用户描述: {description}\n\nAI描述: {ai_description}" if description else ai_description
+            logger.info(f"📝 生成的描述: {final_description[:150]}...")
+
+            # 2. 准备元数据并嵌入到ChromaDB
+            image_name = Path(image_path).name
+            doc_id = hashlib.md5(image_name.encode()).hexdigest()
+            
+            metadata = {
+                "source": image_name,
+                "document_type": "Image",
+                "upload_time": datetime.now().isoformat(),
+                "user_provided_description": bool(description),
+                "file_size": os.path.getsize(image_path)
+            }
+            
+            # 3. 添加到向量库
+            chunks_count = self.vector_store.add_document(doc_id, final_description, metadata)
+            
+            logger.info(f"✅ 图片处理完成: {image_name} (ID: {doc_id}), 共 {chunks_count} 个块")
+            
+            result = {
+                "status": "success",
+                "message": "图片处理和嵌入成功",
+                "image_source": image_path,
+                "chunks_count": chunks_count,
+                "generated_description": final_description
+            }
+            
+            return json.dumps(result, ensure_ascii=False, indent=2)
+
+        except Exception as e:
+            logger.error(f"❌ 图片上传和嵌入流程失败: {e}")
+            return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+    
     def _search_documents(self, query: str, top_k: int = 5, metadata_filter: Optional[Dict[str, Any]] = None) -> str:
         """
         根据查询文本和可选的元数据过滤器搜索文档
@@ -553,7 +626,7 @@ class RAGTool(Tool):
                 *   示例2 (只搜文本): `{"document_type": "Text"}`
                 *   示例3 (只搜特定文件): `{"source_document": "your_file.pdf"}`
                 *   示例4 (复合查询：只搜特定文件中的图片): `{"$and": [{"document_type": "Image"}, {"source_document": "your_file.pdf"}]}`
-        
+            
         Returns:
             str: 包含搜索结果的JSON字符串
         """

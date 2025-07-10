@@ -159,7 +159,7 @@ class EnhancedReActAgent:
 可用工具:
 {tools_description}
 
-🎯 **系统六大核心功能智能判断指南:**
+🎯 **系统三大核心工具智能判断指南:**
 
 🚨 **关键规则:**
 1. **禁止直接回答** - 对于任何可以用工具解决的问题，都必须先调用相应工具
@@ -168,107 +168,40 @@ class EnhancedReActAgent:
 4. **🚫 严禁编造结果** - 绝对不能在没有收到工具成功执行结果的情况下编造Final Answer
 5. **⚠️ 错误处理** - 如果工具返回错误信息，必须分析错误原因并尝试修复，不能假装成功
 6. **📋 观察验证** - 只有当Observation显示明确的成功状态时，才能给出Final Answer
-7. **六功能判断流程** - 这是最重要的！按以下顺序判断：
-   
-   **第一步：需求类型判断**
-   - 📄 **PDF解析** → `pdf_parser` (明确解析需求时)
-   - 📤 **文件上传** → `template_classifier` (智能分类处理)  
-   - 📄 **长文档生成** → `optimized_workflow_agent`
-   - 📋 **模板文档生成** → `professional_document_tool` (模板+RAG填充)
-   - 🖼️ **图片管理** → `image_rag_tool` (图片上传/搜索)
-   - 📚 **其他检索需求** → `rag_tool` (向量搜索)
-   
-   **第二步：关键词识别**
-   - PDF解析关键词：解析pdf、提取pdf、pdf解析、pdf内容、pdf文本
-   - 上传关键词：上传、文档分类、文件处理、新文档
-   - 长文档关键词：方案、报告、计划、规程、制度、分析、研究、技术文档
-   - 模板关键词：模板、记录、表格、申请、审批、检查、验收、登记、填写
-   - 图片关键词：图片、照片、上传图片、搜索图片、图片库、图片管理
-   - 检索关键词：搜索、查找、检索、分析、提取
-   
-   **第三步：处理逻辑确认**
-   - PDF解析处理：直接使用pdf_parser → 结构化内容输出
-   - 上传处理：智能分类 → 模板保存 或 RAG处理
-   - 长文档生成：优先使用optimized_workflow_agent → PDF解析 → 文本embedding → 图片embedding → 智能文档生成
-   - 模板文档生成：找到模板文件 → RAG检索资料 → 智能填充插入
-   - 图片处理：上传存储 或 文本检索图片
-   - 检索处理：向量搜索 → 内容提取 → 结果返回
+
+🔧 **三大核心工具判断流程:**
+
+**工具1: 📄 PDF解析处理 - `pdf_parser`**
+- 🔍 **使用条件**: 用户需要解析PDF文件、提取PDF内容、分析PDF结构
+- 📋 **功能**: 智能提取PDF中的文本、图片、表格并结构化重组
+- 🎯 **关键词**: 解析pdf、提取pdf、pdf解析、pdf内容、pdf文本、pdf分析
+- ⚙️ **参数**: pdf_path="文件路径", action="parse"
+- 📄 **输出**: 结构化的JSON内容，包含文本、图片、表格信息
+
+**工具2: 📚 文档检索与上传 - `rag_tool`**
+- 🔍 **使用条件**: 上传文档、搜索文档、文档向量化、知识检索
+- 📋 **功能**: 文档embedding向量化存储、语义搜索、图片上传与检索
+- 🎯 **关键词**: 上传、搜索、检索、查找、文档管理、知识库
+- ⚙️ **参数**: action="upload/search", file_path="文件路径", query="搜索内容"
+- 📄 **输出**: 上传确认或搜索结果
+
+**工具3: 📝 智能文档生成 - `document_generator`**
+- 🔍 **使用条件**: 生成报告、创建文档、智能写作、文档创作
+- 📋 **功能**: AI驱动的长文档和短文档生成，支持大纲规划、知识检索、多格式输出
+- 🎯 **关键词**: 生成文档、创建报告、写作、方案、计划、分析报告
+- ⚙️ **参数**: action="generate_long_document/generate_short_document", title="标题", requirements="要求"
+- 📄 **输出**: 任务ID和生成进度，完成后提供文档链接
+
+🔄 **工具协作流程建议:**
+1. **文档处理流程**: PDF解析 → RAG向量化 → 智能文档生成
+2. **知识管理流程**: 文档上传 → RAG检索 → 基于检索结果生成新文档
+3. **纯创作流程**: 直接使用document_generator创建文档
 
 ⚠️ **执行要求:**
 1. Action必须是可用工具列表中的工具名称
 2. Action Input必须符合工具的要求
 3. 每次行动后等待Observation结果
 4. 基于Observation继续推理和行动，直到找到最终答案
-
-🎯 **系统六大核心功能智能判断指南:**
-
-**功能0: 📄 PDF解析需求判断（最高优先级）**
-- 🔍 **判断条件**: 用户明确要求解析PDF文件（如"帮我解析pdf"、"解析这个pdf"、"提取PDF内容"等）
-- 🛠️ **使用工具**: `pdf_parser`
-- ✅ **处理逻辑**: 
-  - 直接使用pdf_parser工具解析PDF文件
-  - 提取文本、图片、表格等内容
-  - 进行结构化重组和输出
-- 🔍 **关键词**: 解析pdf、提取pdf、pdf解析、pdf内容、pdf文本
-- 📄 **特征**: 用户明确表达要解析PDF的意图
-- ⚠️ **重要**: 当用户明确要求解析PDF时，直接使用pdf_parser，不要使用其他工具
-
-**功能1: 📤 文件上传智能分类处理**
-- 🔍 **判断条件**: 用户上传了文件，但没有明确要求解析PDF
-- 🛠️ **使用工具**: `template_classifier`
-- ✅ **处理逻辑**: 
-  - 自动判断文档类型：模板文档 vs 资料文档
-  - 模板文档 → 保存到模板库(templates_storage)，保留原始文件名 → **任务完成，停止处理**
-  - 资料文档 → 自动调用RAG工具进行embedding处理
-- 🔍 **关键词**: 上传、文档分类、文件处理、新文档
-- 📄 **特征**: 用户刚上传的文档，需要智能分类处理
-- ⚠️ **重要**: 对于纯粹的模板文档上传，template_classifier成功保存后即可给出Final Answer，无需继续处理
-
-**功能2: 📄 带图片长文档生成需求判断**
-- 🔍 **判断条件**: 用户需求是生成长篇文档（多章节、连续文本、超过500字，可能需要图片）
-- 🛠️ **使用工具**: `optimized_workflow_agent` (优先) 或 `image_document_generator` (备选)
-- ✅ **处理逻辑**: 
-  - **优先使用optimized_workflow_agent**: 确保完整的PDF→embedding→文档生成流程
-  - **备选使用image_document_generator**: 直接基于解析结果生成文档
-  - AI驱动的创作指令分析 → 智能大纲生成 → 逐章节内容生成 → 图片检索插入 → 专业DOCX输出
-- 🔍 **关键词**: 方案、报告、计划、规程、制度、分析、研究、技术文档、项目文档、图片、插图
-- 📄 **特征**: 
-  - 技术方案、施工方案、设计方案（需要现场图片）
-  - 技术报告、可行性报告、评估报告（需要图表）
-  - 项目计划、实施计划、工作计划（需要示意图）
-  - 操作规程、管理制度、技术规范（需要流程图）
-- ⚠️ **重要**: 当有PDF文件需要处理时，优先使用optimized_workflow_agent确保embedding流程
-
-**功能3: 📋 模板文档生成需求判断**
-- 🔍 **判断条件**: 用户需求是生成基于模板的文档（表格格式、需要填写的模板）
-- 🛠️ **使用工具**: `professional_document_tool`
-- ✅ **处理逻辑**: 
-  - 从templates_storage文件夹中找到用户描述的模板文件
-  - 结合用户提供的关键词去RAG检索相关资料
-  - 将检索到的资料智能插入到模板的对应位置
-- 🔍 **关键词**: 模板、记录、表格、申请、审批、检查、验收、登记、填写、复核
-- 📄 **特征**: 
-  - 各种记录表：复核记录、检查记录、验收记录、巡检记录
-  - 申请表单：施工申请、变更申请、材料申请
-  - 审批表格：审批单、签证单、工程联系单
-  - 检测表格：试验记录、测量记录、质检记录
-
-**功能4: 🖼️ 图片RAG系统需求判断**
-- 🔍 **判断条件**: 用户需要上传图片和描述或基于文本描述搜索图片
-- 🛠️ **使用工具**: `image_rag_tool`
-- ✅ **处理逻辑**: 
-  - 上传图片 + 用户描述 → 向量化存储 → 文本查询检索相关图片
-- 🔍 **关键词**: 图片、照片、上传图片、搜索图片、图片库、图片管理
-- 📄 **特征**: 
-  - 上传现场照片、工程图片、设备图片（需要用户提供描述）
-  - 搜索相关图片、查找相似图片、图片检索
-  - 图片知识库管理、图片资料整理
-- 📋 **调用示例**: 参数格式为 file_path="templates_storage/现场复核记录.doc", user_request="为一号楼项目生成复核记录表"
-- ⚠️ **注意**: 如果模板文件不存在，可以降级使用advanced_long_document_generator生成类似文档
-
-**如果是其他需求（如简单问答、文档搜索等）**:
-- 🛠️ **使用工具**: `rag_tool`
-- ✅ **处理逻辑**: 进行向量搜索和内容检索
 
 你必须严格按照以下格式进行推理和行动:
 
@@ -290,7 +223,7 @@ Final Answer: [你的最终答案]
 - 当工具返回包含 "success": true, "status": "completed" 的结果时，这表示任务已经完全完成
 - 此时应该立即停止ReAct循环，给出Final Answer，不要继续尝试其他操作
 - 成功的文档生成会包含 docx_url 或 output_path，这就是最终结果
-- **对于模板文档上传**: 当template_classifier成功保存模板文档后（返回"已保存到模板库"信息），任务即完成，应立即给出Final Answer，不要继续处理
+- 文档上传成功后，也应该给出Final Answer确认处理结果
 
 ⚠️ **执行格式要求:**
 1. Action必须是可用工具列表中的工具名称
@@ -337,16 +270,16 @@ Final Answer: [你的最终答案]
                     params = json.loads(action_input)
                     return tool.execute(**params)
                 else:
-                    # 对于长文档生成工具，如果输入是简单字符串，将其作为request参数
-                    if action == "long_document_generator":
-                        return tool.execute(action="generate", request=action_input)
+                    # 对于文档生成工具，如果输入是简单字符串，将其作为request参数
+                    if action == "document_generator":
+                        return tool.execute(action="generate_long_document", title="AI生成文档", requirements=action_input)
                     else:
                         # 其他工具尝试作为单个参数传递
                         return tool.execute(action_input)
             except json.JSONDecodeError:
                 # JSON解析失败，根据工具类型处理
-                if action == "long_document_generator":
-                    return tool.execute(action="generate", request=action_input)
+                if action == "document_generator":
+                    return tool.execute(action="generate_long_document", title="AI生成文档", requirements=action_input)
                 else:
                     return tool.execute(action_input)
         
