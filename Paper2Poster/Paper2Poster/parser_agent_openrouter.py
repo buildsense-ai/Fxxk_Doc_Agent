@@ -509,7 +509,27 @@ Output:"""
                         with open(image_img_path, "wb") as fp:
                             picture_image.save(fp, "PNG")
                         image_img = Image.open(image_img_path)
-                        # [已移除] 不再提取context字段，使用VLM进行图片描述
+                        # 新增：提取前后2个TextItem文本
+                        context_texts = []
+                        # 向前找2个TextItem
+                        prev = idx - 1
+                        found = 0
+                        while prev >= 0 and found < 2:
+                            prev_elem, _ = all_elements[prev]
+                            if hasattr(prev_elem, 'text') and prev_elem.text:
+                                context_texts.insert(0, prev_elem.text.strip())
+                                found += 1
+                            prev -= 1
+                        # 向后找2个TextItem
+                        next_ = idx + 1
+                        found = 0
+                        while next_ < len(all_elements) and found < 2:
+                            next_elem, _ = all_elements[next_]
+                            if hasattr(next_elem, 'text') and next_elem.text:
+                                context_texts.append(next_elem.text.strip())
+                                found += 1
+                            next_ += 1
+                        context = '\n'.join([t for t in context_texts if t])
                         images[str(picture_counter)] = {
                             'caption': caption if caption else f"图片 {picture_counter}",
                             'image_path': image_img_path,
@@ -517,7 +537,7 @@ Output:"""
                             'height': image_img.height,
                             'figure_size': image_img.width * image_img.height,
                             'figure_aspect': image_img.width / image_img.height,
-                            # [已移除] 'context': context, - 不再使用context字段，由VLM生成描述
+                            'context': context,
                         }
                         print(f"✅ 保存图片 {picture_counter}: {image_img_path}")
                     else:

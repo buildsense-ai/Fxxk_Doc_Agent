@@ -614,14 +614,15 @@ class RAGTool(Tool):
             logger.error(f"❌ 图片上传和嵌入流程失败: {e}")
             return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
     
-    def _search_documents(self, query: str, top_k: int = 5, metadata_filter: Optional[Dict[str, Any]] = None) -> str:
+    def _search_documents(self, query: str, top_k: int = 5, metadata_filter: Optional[Dict[str, Any]] = None, project_name: Optional[str] = None) -> str:
         """
-        根据查询文本和可选的元数据过滤器搜索文档
+        根据查询文本搜索文档 - 支持智能项目隔离
         
         Args:
             query (str): 搜索的关键词或问题。
             top_k (int): 返回最相关的结果数量，默认为5。
             metadata_filter (dict, optional): 用于精确过滤的元数据。
+            project_name (str, optional): 项目名称过滤器（可选，如果不提供会尝试自动提取）
                 *   示例1 (只搜图片): `{"document_type": "Image"}`
                 *   示例2 (只搜文本): `{"document_type": "Text"}`
                 *   示例3 (只搜特定文件): `{"source_document": "your_file.pdf"}`
@@ -631,39 +632,100 @@ class RAGTool(Tool):
             str: 包含搜索结果的JSON字符串
         """
         logger.info(f"执行文档搜索: query='{query}', top_k={top_k}, filter={metadata_filter}")
+        
         try:
-            results = self.vector_store.search_documents(
-                query=query, 
-                n_results=top_k,
-                where_filter=metadata_filter
-            )
+            # 🆕 智能项目名称提取
+            if not project_name:
+                project_name = self._extract_project_name_from_query(query)
+                if project_name:
+                    logger.info(f"🎯 自动提取项目名称: {project_name}")
             
-            # 简化输出
-            simplified_results = []
-            for res in results:
-                simplified_results.append({
-                    "content": res.get("content"),
-                    "metadata": res.get("metadata"),
-                    "distance": res.get("distance")
-                })
+            # 🆕 如果有项目名称且PDF Embedding Service可用，优先使用项目隔离搜索
+            if project_name and self.pdf_embedding_service:
+                logger.info(f"🔍 使用项目隔离搜索: {project_name}")
+                results = self.pdf_embedding_service.search(
+                    query=query,
+                    top_k=top_k,
+                    content_type=None,  # 搜索所有类型
+                    source_file_filter=None,
+                    project_name=project_name
+                )
+                
+                simplified_results = []
+                for res in results:
+                    simplified_results.append({
+                        "content": res.get("content", ""),
+                        "metadata": res.get("metadata", {}),
+                        "distance": res.get("distance", 0.0)
+                    })
+                
+                result_data = {
+                    "status": "success", 
+                    "results": simplified_results,
+                    "total_count": len(simplified_results),
+                    "search_method": "pdf_embedding_service_with_project_isolation"
+                }
+                
+                result_data["project_isolation"] = {
+                    "enabled": True,
+                    "project_name": project_name,
+                    "message": f"🔒 已限制搜索范围至项目: {project_name}"
+                }
+                
+                return json.dumps(result_data, ensure_ascii=False)
+            
+            # 🔄 回退到传统向量搜索
+            else:
+                logger.info("🔍 使用传统向量搜索")
+                results = self.vector_store.search_documents(
+                    query=query, 
+                    n_results=top_k,
+                    where_filter=metadata_filter
+                )
+                
+                # 简化输出
+                simplified_results = []
+                for res in results:
+                    simplified_results.append({
+                        "content": res.get("content"),
+                        "metadata": res.get("metadata"),
+                        "distance": res.get("distance")
+                    })
 
-            return json.dumps({
-                "status": "success", 
-                "results": simplified_results
-            }, ensure_ascii=False)
+                result_data = {
+                    "status": "success", 
+                    "results": simplified_results,
+                    "total_count": len(simplified_results),
+                    "search_method": "vector_store"
+                }
+                
+                if project_name:
+                    result_data["project_isolation"] = {
+                        "enabled": False,
+                        "attempted_project": project_name,
+                        "message": f"⚠️ PDF Embedding Service不可用，使用传统搜索（无项目隔离）"
+                    }
+                else:
+                    result_data["project_isolation"] = {
+                        "enabled": False,
+                        "message": "⚠️ 未启用项目隔离，搜索了所有项目"
+                    }
+
+                return json.dumps(result_data, ensure_ascii=False)
+                
         except Exception as e:
             logger.error(f"文档搜索失败: {e}")
             return json.dumps({"status": "error", "message": str(e)})
     
     def _search_images(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None, project_name: Optional[str] = None) -> str:
         """
-        搜索图片内容 - 支持项目隔离
+        搜索图片内容 - 支持智能项目隔离
         
         Args:
             query: 搜索关键词
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
-            project_name: 项目名称过滤器（实现项目隔离）
+            project_name: 项目名称过滤器（可选，如果不提供会尝试自动提取）
             
         Returns:
             包含搜索结果的JSON字符串
@@ -675,6 +737,13 @@ class RAGTool(Tool):
             })
         
         try:
+            # 🆕 智能项目名称提取
+            if not project_name:
+                # 尝试从查询中提取项目名称
+                project_name = self._extract_project_name_from_query(query)
+                if project_name:
+                    logger.info(f"🎯 自动提取项目名称: {project_name}")
+            
             results = self.pdf_embedding_service.search_images_only(
                 query=query, 
                 top_k=top_k, 
@@ -691,24 +760,115 @@ class RAGTool(Tool):
                     "distance": res.get("distance", 0.0)
                 })
             
-            return json.dumps({
+            # 🆕 添加项目隔离信息到返回结果
+            result_data = {
                 "status": "success", 
                 "results": simplified_results,
                 "total_count": len(simplified_results)
-            }, ensure_ascii=False)
+            }
+            
+            if project_name:
+                result_data["project_isolation"] = {
+                    "enabled": True,
+                    "project_name": project_name,
+                    "message": f"🔒 已限制搜索范围至项目: {project_name}"
+                }
+            else:
+                result_data["project_isolation"] = {
+                    "enabled": False,
+                    "message": "⚠️ 未启用项目隔离，搜索了所有项目"
+                }
+            
+            return json.dumps(result_data, ensure_ascii=False)
             
         except Exception as e:
             logger.error(f"图片搜索失败: {e}")
             return json.dumps({"status": "error", "message": str(e)})
     
-    def _search_tables(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None) -> str:
+    def _extract_project_name_from_query(self, query: str) -> Optional[str]:
         """
-        搜索表格内容
+        从查询中智能提取项目名称
+        
+        Args:
+            query: 搜索查询
+            
+        Returns:
+            提取到的项目名称，如果未找到则返回None
+        """
+        try:
+            # 获取所有可用项目
+            if hasattr(self.pdf_embedding_service, 'get_available_projects'):
+                available_projects = self.pdf_embedding_service.get_available_projects()
+                
+                # 按长度排序，优先匹配更长的项目名称
+                available_projects = sorted(available_projects, key=len, reverse=True)
+                
+                # 🔍 正确的匹配逻辑：检查查询是否包含在项目名称中
+                for project in available_projects:
+                    if query in project:
+                        return project
+                
+                # 🔍 智能关键词匹配：提取项目的核心关键词
+                for project in available_projects:
+                    # 移除常见后缀，提取核心关键词
+                    project_core = project.replace("设计方案", "").replace("修缮设计方案", "").replace("项目", "").replace("文物", "").strip()
+                    
+                    # 检查查询是否包含核心关键词
+                    if project_core and query in project_core:
+                        return project
+                    
+                    # 检查核心关键词是否包含在查询中
+                    if project_core and project_core in query:
+                        return project
+                
+                # 🔍 分词匹配：处理复合词情况
+                for project in available_projects:
+                    # 分解项目名称为关键词列表
+                    project_keywords = []
+                    
+                    # 提取主要关键词
+                    if "宗祠" in project:
+                        project_keywords.extend(["宗祠"])
+                        # 提取宗祠前的姓氏
+                        if "氏宗祠" in project:
+                            idx = project.find("氏宗祠")
+                            if idx > 0:
+                                surname = project[idx-1:idx+1]  # 如"刘氏"
+                                project_keywords.append(surname)
+                    
+                    if "古庙" in project:
+                        project_keywords.extend(["古庙"])
+                        # 提取古庙前的名称
+                        idx = project.find("古庙")
+                        if idx > 0:
+                            # 尝试提取2-3个字符的名称
+                            for length in [3, 2]:
+                                if idx >= length:
+                                    name = project[idx-length:idx]
+                                    if name not in ["设计", "修缮", "方案"]:
+                                        project_keywords.append(name)
+                                        break
+                    
+                    # 检查是否有关键词匹配
+                    for keyword in project_keywords:
+                        if keyword in query:
+                            return project
+            
+            return None
+            
+        except Exception as e:
+            logger.warning(f"项目名称提取失败: {e}")
+            return None
+    
+    def _search_tables(self, query: str, top_k: int = 5, source_file_filter: Optional[str] = None, project_name: Optional[str] = None) -> str:
+        """
+        搜索表格内容 - 支持智能项目隔离
         
         Args:
             query: 搜索关键词
             top_k: 返回结果数量
             source_file_filter: 源文件过滤器
+            project_name: 项目名称过滤器（可选，如果不提供会尝试自动提取）
             
         Returns:
             包含搜索结果的JSON字符串
@@ -720,10 +880,17 @@ class RAGTool(Tool):
             })
         
         try:
+            # 🆕 智能项目名称提取
+            if not project_name:
+                project_name = self._extract_project_name_from_query(query)
+                if project_name:
+                    logger.info(f"🎯 自动提取项目名称: {project_name}")
+            
             results = self.pdf_embedding_service.search_tables_only(
                 query=query, 
                 top_k=top_k, 
-                source_file_filter=source_file_filter
+                source_file_filter=source_file_filter,
+                project_name=project_name  # 🆕 项目隔离参数
             )
             
             simplified_results = []
@@ -735,11 +902,26 @@ class RAGTool(Tool):
                     "distance": res.get("distance", 0.0)
                 })
             
-            return json.dumps({
+            # 🆕 添加项目隔离信息到返回结果
+            result_data = {
                 "status": "success", 
                 "results": simplified_results,
                 "total_count": len(simplified_results)
-            }, ensure_ascii=False)
+            }
+            
+            if project_name:
+                result_data["project_isolation"] = {
+                    "enabled": True,
+                    "project_name": project_name,
+                    "message": f"🔒 已限制搜索范围至项目: {project_name}"
+                }
+            else:
+                result_data["project_isolation"] = {
+                    "enabled": False,
+                    "message": "⚠️ 未启用项目隔离，搜索了所有项目"
+                }
+            
+            return json.dumps(result_data, ensure_ascii=False)
             
         except Exception as e:
             logger.error(f"表格搜索失败: {e}")

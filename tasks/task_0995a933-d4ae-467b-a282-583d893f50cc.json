@@ -1,0 +1,100 @@
+{
+  "taskId": "0995a933-d4ae-467b-a282-583d893f50cc",
+  "status": "content_generation",
+  "progressPercentage": 30,
+  "currentStatusMessage": "正在生成第 1/9 章: '项目概况'...",
+  "initialRequest": {
+    "chathistory": "用户需要生成可塞古庙的文物影响评估报告",
+    "request": "生成一份关于可塞古庙的文物影响评估专业报告，包含历史价值评估、现状分析、保护建议等内容"
+  },
+  "reportType": "long",
+  "creativeBrief": {
+    "评估对象": "可塞古庙",
+    "项目性质": "文物影响评估",
+    "核心评估要求": [
+      "历史价值评估：评估可塞古庙的历史背景、文化意义及其在历史长河中的地位。",
+      "现状分析：详细描述可塞古庙的当前物理状况、周边环境及其对文物保存的影响。",
+      "保护建议：基于历史价值评估和现状分析，提出具体的保护措施和管理建议，以确保可塞古庙的长期保存和传承。"
+    ],
+    "语言要求": "所有文本内容必须使用中文"
+  },
+  "projectName": "可塞古庙文物影响评估项目",
+  "introduction": "",
+  "conclusion": "",
+  "outline": {
+    "metadata": {
+      "refinementCycles": 0
+    },
+    "chapters": [
+      {
+        "chapterId": "ch_01",
+        "title": "项目概况",
+        "key_points": [
+          "编制背景",
+          "评估内容和范围",
+          "项目编制依据",
+          "评估目的",
+          "评估原则和思想"
+        ]
+      },
+      {
+        "chapterId": "ch_02",
+        "title": "建设项目涉及文物情况",
+        "key_points": [
+          "文物概况",
+          "历史沿革",
+          "价值评估",
+          "现状情况"
+        ]
+      },
+      {
+        "chapterId": "ch_03",
+        "title": "项目建设必要性",
+        "key_points": []
+      },
+      {
+        "chapterId": "ch_04",
+        "title": "项目建设概况",
+        "key_points": []
+      },
+      {
+        "chapterId": "ch_05",
+        "title": "支撑法律，法规及文件等",
+        "key_points": []
+      },
+      {
+        "chapterId": "ch_06",
+        "title": "项目对文物影响评估",
+        "key_points": [
+          "对文物本体安全影响评估",
+          "对文物保护范围内影响评估",
+          "对文物建筑历史景观风貌影响评估",
+          "对文物施工期影响评估"
+        ]
+      },
+      {
+        "chapterId": "ch_07",
+        "title": "项目监测方案",
+        "key_points": []
+      },
+      {
+        "chapterId": "ch_08",
+        "title": "应急方案",
+        "key_points": []
+      },
+      {
+        "chapterId": "ch_09",
+        "title": "结论及建议",
+        "key_points": [
+          "评估结论",
+          "要求与建议"
+        ]
+      }
+    ]
+  },
+  "finalDocument": "",
+  "markdownPublicUrl": "",
+  "docxPublicUrl": "",
+  "errorLog": [],
+  "lastUpdatedTimestamp": "2025-07-11T01:12:17Z"
+}

@@ -653,14 +653,14 @@ def upload_file():
 
 请使用ReAct循环处理这张图片：
 1. Thought：分析这是一个图片文件，需要使用图片RAG系统进行上传和处理
-2. Action：advanced_long_document_generator
+2. Action：image_rag_tool
 3. Action Input：{{"action": "upload_image", "file_path": "{file_path}", "description": "{description}"}}
 4. 根据Observation结果继续推理和行动
 
 请完全按照ReAct循环（Thought → Action → Observation）来处理这张图片。"""
             
             processing_type = "图片RAG处理"
-            tool_name = "advanced_long_document_generator"
+            tool_name = "image_rag_tool"
             
         elif file_type == 'template':
             # 模板文档 - 调用模板转换工具

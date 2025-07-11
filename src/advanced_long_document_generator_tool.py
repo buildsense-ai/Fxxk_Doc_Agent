@@ -254,9 +254,9 @@ class AdvancedLongDocumentGeneratorTool(Tool):
                                     "has_docx": bool(task_state.data.get('docxPublicUrl', '')),
                                     "has_markdown": bool(task_state.data.get('markdownPublicUrl', ''))
                                 })
-        except Exception as e:
+                        except Exception as e:
                             print(f"读取任务 {task_id} 失败: {e}")
-                continue
+                            continue
             
             # 按最后更新时间排序
             tasks.sort(key=lambda x: x.get('last_updated', ''), reverse=True)
@@ -319,11 +319,11 @@ class AdvancedLongDocumentGeneratorTool(Tool):
     
     def _delete_task(self, task_id: str, **kwargs) -> str:
         """删除任务"""
-                if not task_id:
-                    return json.dumps({
+        if not task_id:
+            return json.dumps({
                 "status": "error",
                 "message": "请提供task_id参数"
-                    }, ensure_ascii=False)
+            }, ensure_ascii=False)
                 
         try:
             task_file = os.path.join(self.tasks_dir, f"task_{task_id}.json")
